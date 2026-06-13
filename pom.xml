@@ -15,10 +15,15 @@
     <description>SRC - Spring Relay Chat</description>
     <url/>
     <licenses>
-        <license>GPL</license>
+        <license>
+            <name>GPL v3 or later</name>
+        </license>
     </licenses>
     <developers>
-        <developer>sdcirri</developer>
+        <developer>
+            <name>sdcirri</name>
+            <email>sebadeod@proton.me</email>
+        </developer>
     </developers>
     <scm>
         <connection/>
