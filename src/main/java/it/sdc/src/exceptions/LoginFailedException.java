@@ -1,0 +1,7 @@
+package it.sdc.src.exceptions;
+
+public class LoginFailedException extends RuntimeException {
+    public LoginFailedException(String message) {
+        super(message);
+    }
+}

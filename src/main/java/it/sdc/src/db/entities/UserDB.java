@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -35,4 +37,8 @@ public class UserDB {
 
     @OneToOne(mappedBy = "userDB", cascade = CascadeType.ALL, orphanRemoval = true)
     private UserCryptoDB crypto;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserSessionDB> activeSessions = new ArrayList<>();
 }
