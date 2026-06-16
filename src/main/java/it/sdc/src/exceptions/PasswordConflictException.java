@@ -1,7 +1,9 @@
 package it.sdc.src.exceptions;
 
-public class PasswordConflictException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class PasswordConflictException extends BusinessException {
     public PasswordConflictException(String message) {
-        super(message);
+        super(message, HttpStatus.CONFLICT);
     }
 }

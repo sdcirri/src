@@ -1,5 +1,6 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.accountedits.MessageRequest;
@@ -7,6 +8,7 @@ import it.sdc.src.service.ChatService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,20 +23,24 @@ public class ChatController {
     private final ChatService chatService;
 
     @GetMapping
-    public List<ChatDto> getMyChats() {
-        // TODO: Bearer auth
-        return chatService.getChats(UUID.randomUUID());
+    public List<ChatDto> getMyChats(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return chatService.getChats(userPrincipal.getUserId());
     }
 
     @GetMapping("/{contactId}")
-    public List<MessageDto> getMessageHistory(@PathVariable UUID contactId) {
-        // TODO: Bearer auth
-        return chatService.getMessages(UUID.randomUUID(), contactId);
+    public List<MessageDto> getMessageHistory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable UUID contactId
+    ) {
+        return chatService.getMessages(userPrincipal.getUserId(), contactId);
     }
 
     @PostMapping("/{contactId}")
-    public ChatDto sendMessage(@PathVariable @NotNull UUID contactId, @Valid @RequestBody MessageRequest request) {
-        // TODO: Bearer auth
-        return chatService.sendMessage(UUID.randomUUID(), contactId, request);
+    public ChatDto sendMessage(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable @NotNull UUID contactId,
+            @Valid @RequestBody MessageRequest request
+    ) {
+        return chatService.sendMessage(userPrincipal.getUserId(), contactId, request);
     }
 }

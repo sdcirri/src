@@ -1,7 +1,9 @@
 package it.sdc.src.exceptions;
 
-public class ChatNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ChatNotFoundException extends BusinessException {
     public ChatNotFoundException(String message) {
-        super(message);
+        super(message, HttpStatus.NOT_FOUND);
     }
 }

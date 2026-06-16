@@ -1,7 +1,9 @@
 package it.sdc.src.exceptions;
 
-public class LoginFailedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class LoginFailedException extends BusinessException {
     public LoginFailedException(String message) {
-        super(message);
+        super(message, HttpStatus.FORBIDDEN);
     }
 }

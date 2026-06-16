@@ -114,24 +114,16 @@ public class AuthService {
 
     /**
      * Refresh a user session
-     * @param userId user ID
      * @param refreshToken current refresh token
      * @return a new user session
      * @throws LoginFailedException on bad refresh token
      */
-    public UserSessionDto refreshAccessToken(UUID userId, String refreshToken) {
-        UserSessionDB session = userSessionRepository.findByUser_IdAndRefreshToken(
-                userId,
-                Base64.getDecoder().decode(refreshToken.getBytes())
-        ).orElseThrow(
-                () -> new LoginFailedException("Invalid refresh token")
-        );
-        UserDB user = userRepository.findById(userId).orElseThrow(
-                () -> new UserNotFoundException("User not found")
-        );
+    public UserSessionDto refreshAccessToken(byte[] refreshToken) {
+        UserSessionDB session = userSessionRepository.findByRefreshToken(refreshToken)
+                .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
 
         userSessionRepository.delete(session);
-        UserSessionDB newSession = yieldSession(user);
+        UserSessionDB newSession = yieldSession(session.getUser());
         return toDto(newSession);
     }
 

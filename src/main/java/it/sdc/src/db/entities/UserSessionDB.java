@@ -20,13 +20,13 @@ public class UserSessionDB {
     @Column
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private byte[] accessToken;
 
     @Column(nullable = false)
     private Instant accessTokenExpires;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private byte[] refreshToken;
 
     @Column(nullable = false)

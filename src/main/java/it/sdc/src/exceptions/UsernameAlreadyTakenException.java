@@ -1,7 +1,9 @@
 package it.sdc.src.exceptions;
 
-public class UsernameAlreadyTakenException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UsernameAlreadyTakenException extends BusinessException {
     public UsernameAlreadyTakenException(String message) {
-        super(message);
+        super(message, HttpStatus.CONFLICT);
     }
 }

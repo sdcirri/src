@@ -1,5 +1,6 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,15 +33,13 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public UserSessionDto refreshSession() {
-        // TODO: Bearer auth
-        return authService.refreshAccessToken(UUID.randomUUID(), "xxx");
+    public UserSessionDto refreshSession(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return authService.refreshAccessToken(userPrincipal.getRefreshToken());
     }
 
     @GetMapping("/me/crypto")
-    public UserCryptoDto getCryptoSpecs() {
-        // TODO: Bearer auth
-        return authService.getMyCryptoSpecs(UUID.randomUUID());
+    public UserCryptoDto getCryptoSpecs(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return authService.getMyCryptoSpecs(userPrincipal.getUserId());
     }
 
     @PostMapping("/register")
@@ -49,30 +49,36 @@ public class AuthController {
 
     @PostMapping("/register/finalize")
     public UserCryptoDto finalizeRegistration(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody UserRegistrationFinalizationRequest request
     ) {
-        // TODO: Bearer auth
-        return authService.finalizeRegistration(UUID.randomUUID(), request);
+        return authService.finalizeRegistration(userPrincipal.getUserId(), request);
     }
 
     @PutMapping("/me/display_name")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto setDisplayName(@Valid @RequestBody DisplayNameChangeRequest request) {
-        // TODO: Bearer auth
-        return authService.setDisplayName(UUID.randomUUID(), request.displayName());
+    public UserDto setDisplayName(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody DisplayNameChangeRequest request
+    ) {
+        return authService.setDisplayName(userPrincipal.getUserId(), request.displayName());
     }
 
     @PutMapping("/me/username")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto setUsername(@Valid @RequestBody UsernameChangeRequest request) {
-        // TODO: Bearer auth
-        return authService.changeUsername(UUID.randomUUID(), request.username());
+    public UserDto setUsername(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody UsernameChangeRequest request
+    ) {
+        return authService.changeUsername(userPrincipal.getUserId(), request.username());
     }
 
     @PostMapping("/me/password")
-    public UserSessionDto changePassword(@Valid @RequestBody PasswordChangeRequest request) {
-        // TODO: Bearer auth
-        return authService.changePassword(UUID.randomUUID(), request.password());
+    public UserSessionDto changePassword(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody PasswordChangeRequest request
+    ) {
+        return authService.changePassword(userPrincipal.getUserId(), request.password());
     }
 
     @GetMapping("/{contactId}/crypto")
