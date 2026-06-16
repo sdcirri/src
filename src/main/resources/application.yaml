@@ -1,3 +1,7 @@
 spring:
   application:
     name: src
+
+auth:
+  access-token-validity-seconds: 3600
+  refresh-token-validity-seconds: 1209600

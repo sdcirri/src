@@ -1,5 +1,6 @@
 package it.sdc.src.service;
 
+import it.sdc.src.config.AuthProperties;
 import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
@@ -36,6 +37,8 @@ public class AuthService {
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
 
+    private final AuthProperties authProperties;
+
     /**
      * Generate fresh access and refresh tokens
      * @return the new tokens
@@ -53,14 +56,13 @@ public class AuthService {
      * @return a new session for the user
      */
     private UserSessionDB yieldSession(UserDB user) {
-        // TODO: read token validity from application.yaml
         byte[][] tokens = yieldTokens();
         return userSessionRepository.save(UserSessionDB.builder()
                 .user(user)
                 .accessToken(tokens[0])
-                .accessTokenExpires(Instant.now())
+                .accessTokenExpires(Instant.now().plusSeconds(authProperties.getAccessTokenValiditySeconds()))
                 .refreshToken(tokens[1])
-                .refreshTokenExpires(Instant.now())
+                .refreshTokenExpires(Instant.now().plusSeconds(authProperties.getRefreshTokenValiditySeconds()))
                 .build()
         );
     }

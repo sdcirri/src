@@ -33,7 +33,7 @@ public class AccessTokenIntrospector implements OpaqueTokenIntrospector {
         if (Instant.now().isAfter(session.getAccessTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
         return new UserPrincipal(
-                session.getId(),
+                session.getUser().getId(),
                 session.getUser().getUsername(),
                 session.getAccessTokenExpires(),
                 session.getRefreshToken(),

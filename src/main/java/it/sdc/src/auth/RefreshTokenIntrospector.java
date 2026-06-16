@@ -30,10 +30,10 @@ public class RefreshTokenIntrospector implements OpaqueTokenIntrospector {
 
         UserSessionDB session = userSessionRepository.findByRefreshToken(decoded)
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
-        if (Instant.now().isAfter(session.getAccessTokenExpires()))
+        if (Instant.now().isAfter(session.getRefreshTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
         return new UserPrincipal(
-                session.getId(),
+                session.getUser().getId(),
                 session.getUser().getUsername(),
                 session.getAccessTokenExpires(),
                 session.getRefreshToken(),
