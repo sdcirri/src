@@ -12,6 +12,7 @@ import it.sdc.src.dto.requests.accountedits.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +49,7 @@ public class ChatService {
      * @param messageRequest message request payload
      * @return the updated chat descriptor with the new message
      */
+    @Transactional
     public ChatDto sendMessage(UUID myUserId, UUID contactId, MessageRequest messageRequest) {
         if (myUserId.equals(contactId))
             throw new SelfChatException("You can't start new chat with yourself");

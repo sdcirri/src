@@ -14,6 +14,7 @@ import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.exceptions.*;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -117,6 +118,7 @@ public class AuthService {
      * @return a new user session
      * @throws LoginFailedException on bad refresh token
      */
+    @Transactional
     public UserSessionDto refreshAccessToken(byte[] refreshToken) {
         UserSessionDB session = userSessionRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
@@ -225,6 +227,7 @@ public class AuthService {
      * @param newPassword the new password to set
      * @throws UserNotFoundException on bad user ID
      */
+    @Transactional
     public UserSessionDto changePassword(UUID userId, String newPassword) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
