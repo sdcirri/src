@@ -1,5 +1,6 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.UserSessionDto;
@@ -25,8 +26,14 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public UserSessionDto login(@Valid @NotNull @RequestBody LoginRequest request) {
+    public UserSessionDto login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request.username(), request.password());
+    }
+
+    @PostMapping("/refresh")
+    public UserSessionDto refreshSession() {
+        // TODO: Bearer auth
+        return authService.refreshAccessToken(UUID.randomUUID(), "xxx");
     }
 
     @GetMapping("/me/crypto")
@@ -36,34 +43,40 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public UserSessionDto register(@Valid @NotNull @RequestBody UserRegistrationRequest request) {
+    public UserSessionDto register(@Valid @RequestBody UserRegistrationRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/register/finalize")
     public UserCryptoDto finalizeRegistration(
-            @Valid @NotNull @RequestBody UserRegistrationFinalizationRequest request
+            @Valid @RequestBody UserRegistrationFinalizationRequest request
     ) {
-        return authService.finalizeRegistration(request);
+        // TODO: Bearer auth
+        return authService.finalizeRegistration(UUID.randomUUID(), request);
     }
 
     @PutMapping("/me/display_name")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto setDisplayName(@Valid @NotNull @RequestBody DisplayNameChangeRequest request) {
+    public UserDto setDisplayName(@Valid @RequestBody DisplayNameChangeRequest request) {
         // TODO: Bearer auth
         return authService.setDisplayName(UUID.randomUUID(), request.displayName());
     }
 
     @PutMapping("/me/username")
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto setUsername(@Valid @NotNull @RequestBody UsernameChangeRequest request) {
+    public UserDto setUsername(@Valid @RequestBody UsernameChangeRequest request) {
         // TODO: Bearer auth
         return authService.changeUsername(UUID.randomUUID(), request.username());
     }
 
     @PostMapping("/me/password")
-    public UserSessionDto changePassword(@Valid @NotNull @RequestBody PasswordChangeRequest request) {
+    public UserSessionDto changePassword(@Valid @RequestBody PasswordChangeRequest request) {
         // TODO: Bearer auth
         return authService.changePassword(UUID.randomUUID(), request.password());
+    }
+
+    @GetMapping("/{contactId}/crypto")
+    public ContactCryptoDto getUserCryptoSpecs(@PathVariable @NotNull UUID contactId) {
+        return authService.getUserCryptoSpecs(contactId);
     }
 }

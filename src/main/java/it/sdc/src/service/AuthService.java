@@ -73,8 +73,11 @@ public class AuthService {
      * @throws LoginFailedException if credentials are invalid
      */
     public UserSessionDto login(String username, String password) {
-        UserDB user = userRepository.findByUsernameAndPasswordHash(username, PASSWORD_ENCODER.encode(password))
-                .orElseThrow(() -> new LoginFailedException("Invalid username or password"));
+        UserDB user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new LoginFailedException("Invalid username"));
+
+        if (!PASSWORD_ENCODER.matches(password, user.getPasswordHash()))
+            throw new LoginFailedException("Invalid password");
 
         UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);
@@ -95,14 +98,11 @@ public class AuthService {
 
     /**
      * Returns another user's public keys for contacting them
-     * @param username user to contact
+     * @param userId user to contact
      * @return user's public keys
      */
-    public ContactCryptoDto getUserCryptoSpecs(String username) {
-        UserDB user = userRepository.findByUsername(username).orElseThrow(
-                () -> new UserNotFoundException("User not found")
-        );
-        UserCryptoDB userCrypto = userCryptoRepository.findById(user.getId()).orElseThrow(
+    public ContactCryptoDto getUserCryptoSpecs(UUID userId) {
+        UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
         Base64.Encoder encoder = Base64.getEncoder();
@@ -120,7 +120,7 @@ public class AuthService {
      * @throws LoginFailedException on bad refresh token
      */
     public UserSessionDto refreshAccessToken(UUID userId, String refreshToken) {
-        UserSessionDB session = userSessionRepository.findByUserIdAndRefreshToken(
+        UserSessionDB session = userSessionRepository.findByUser_IdAndRefreshToken(
                 userId,
                 Base64.getDecoder().decode(refreshToken.getBytes())
         ).orElseThrow(
@@ -160,12 +160,13 @@ public class AuthService {
     /**
      * Finalizes user registration with crypto specs
      * generated client-side
+     * @param userId partially registered user ID
      * @param request registration finalization request with the required crypto specs
      * @return user crypto specs
      * @throws LoginFailedException on bad payload
      */
-    public UserCryptoDto finalizeRegistration(UserRegistrationFinalizationRequest request) {
-        UserDB newUser = userRepository.findById(request.id()).orElseThrow(
+    public UserCryptoDto finalizeRegistration(UUID userId, UserRegistrationFinalizationRequest request) {
+        UserDB newUser = userRepository.findById(userId).orElseThrow(
                 () -> new LoginFailedException("Bad request")
         );
 
@@ -173,7 +174,7 @@ public class AuthService {
         UserCryptoDB newUserCrypto = UserCryptoDB.builder()
                 .id(newUser.getId())
                 .kekSalt(decoder.decode(request.kekSalt()))
-                .privateEd25519(decoder.decode(request.privateX25519Crypto()))
+                .privateEd25519(decoder.decode(request.privateEd25519Crypto()))
                 .ivEd25519(decoder.decode(request.privateEd25519IV()))
                 .publicEd25519(decoder.decode(request.publicEd25519()))
                 .privateX25519(decoder.decode(request.privateX25519Crypto()))
@@ -239,7 +240,7 @@ public class AuthService {
         user.setPasswordHash(PASSWORD_ENCODER.encode(newPassword));
         userRepository.save(user);
 
-        userSessionRepository.deleteAllByUserId(user.getId());
+        userSessionRepository.deleteAllByUser_Id(user.getId());
         UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);
     }

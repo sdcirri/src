@@ -7,7 +7,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserSessionDBRepository extends JpaRepository<UserSessionDB, UUID> {
-    Optional<UserSessionDB> findByUserIdAndRefreshToken(UUID userId, byte[] refreshToken);
+    Optional<UserSessionDB> findByUser_IdAndRefreshToken(UUID userId, byte[] refreshToken);
 
-    void deleteAllByUserId(UUID userId);
+    void deleteAllByUser_Id(UUID userId);
 }
+

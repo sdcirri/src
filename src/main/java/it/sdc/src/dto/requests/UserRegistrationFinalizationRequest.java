@@ -4,10 +4,7 @@ import it.sdc.src.validation.Base64String;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-import java.util.UUID;
-
 public record UserRegistrationFinalizationRequest(
-        @NotNull UUID id,
         @NotNull @NotBlank @Base64String String kekSalt,
         @NotNull @NotBlank @Base64String String privateEd25519Crypto,
         @NotNull @NotBlank @Base64String String privateEd25519IV,
