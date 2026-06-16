@@ -12,9 +12,9 @@ import it.sdc.src.dto.requests.accountedits.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Base64;
