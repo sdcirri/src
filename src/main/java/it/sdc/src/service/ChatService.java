@@ -38,7 +38,9 @@ public class ChatService {
     public List<ChatDto> getChats(UUID myUserId) {
         return chatRepository.findByUserId(myUserId).stream()
                 .map(chat -> toDto(chat, myUserId))
-                .sorted(Comparator.comparing(chat -> chat.lastMessage().timestamp()))
+                .sorted(Comparator.comparing(
+                        (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()
+                )
                 .collect(Collectors.toList());
     }
 
