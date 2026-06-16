@@ -4,9 +4,11 @@ import it.sdc.src.db.entities.ChatDB;
 import it.sdc.src.db.entities.MessageDB;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.repositories.ChatDBRepository;
+import it.sdc.src.db.repositories.MessageDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
+import it.sdc.src.dto.requests.accountedits.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,12 +26,31 @@ import java.util.stream.Collectors;
 public class ChatService {
     private final ChatDBRepository chatRepository;
     private final UserDBRepository userRepository;
+    private final MessageDBRepository messageRepository;
 
-    public ChatDto startNewChat(UUID myUserId, UUID contactUserId) {
-        if (myUserId.equals(contactUserId))
+    /**
+     * List user previous chats
+     * @param myUserId current user ID
+     * @return the list of user chats
+     */
+    public List<ChatDto> getChats(UUID myUserId) {
+        return chatRepository.findByUserId(myUserId).stream()
+                .map(chat -> toDto(chat, myUserId))
+                .sorted(Comparator.comparing(chat -> chat.lastMessage().timestamp()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Sends a message to a user, initializing a new chat if necessary
+     * @param myUserId current user ID
+     * @param messageRequest message request payload
+     * @return the sent message
+     */
+    public MessageDto sendMessage(UUID myUserId, MessageRequest messageRequest) {
+        if (myUserId.equals(messageRequest.contactId()))
             throw new SelfChatException("You can't start new chat with yourself");
-        UUID user1Id = myUserId.compareTo(contactUserId) < 0 ? myUserId : contactUserId;
-        UUID user2Id = myUserId.equals(user1Id) ? contactUserId : myUserId;
+        UUID user1Id = myUserId.compareTo(messageRequest.contactId()) < 0 ? myUserId : messageRequest.contactId();
+        UUID user2Id = myUserId.equals(user1Id) ? messageRequest.contactId() : myUserId;
 
         UserDB user1 = userRepository.findById(user1Id).orElseThrow(
                 () -> new UserNotFoundException("User not found")
@@ -43,25 +65,45 @@ public class ChatService {
                         .build()
                 ));
 
-        byte[] ed25519 = myUserId.equals(user1Id) ? user2.getCrypto().getPublicEd25519() : user1.getCrypto().getPublicEd25519();
-        byte[] x25519 = myUserId.equals(user1Id) ? user2.getCrypto().getPublicX25519() : user1.getCrypto().getPublicX25519();
-
-        return new ChatDto(
-                chat.getId(),
-                Base64.getEncoder().encodeToString(ed25519),
-                Base64.getEncoder().encodeToString(x25519)
+        MessageDB message = messageRepository.save(MessageDB.builder()
+                        .chat(chat)
+                        .sender(user1Id.equals(myUserId) ? user1 : user2)
+                        .data(Base64.getDecoder().decode(messageRequest.messageData()))
+                        .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
+                        .build()
         );
+        return toDto(message, myUserId);
     }
 
+    /**
+     * List messages of a chat
+     * @param myUserId current user ID
+     * @param contactUserId contact user ID
+     * @return the messaging history between the two users
+     */
     public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId) {
         UUID user1Id = myUserId.compareTo(contactUserId) < 0 ? myUserId : contactUserId;
         UUID user2Id = myUserId.equals(user1Id) ? contactUserId : myUserId;
-        ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
-                () -> new ChatNotFoundException("Chat not found")
+        try {
+            ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
+                    () -> new ChatNotFoundException("Chat not found")
+            );
+            return chat.getMessages().stream()
+                    .map(msg -> toDto(msg, myUserId))
+                    .collect(Collectors.toList());
+        }
+        catch (ChatNotFoundException e) {
+            return List.of();
+        }
+    }
+
+    private static ChatDto toDto(ChatDB chat, UUID userId) {
+        UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
+        return new ChatDto(
+                chat.getId(),
+                user1Id.equals(userId) ? user2Id : user1Id,
+                toDto(chat.getMessages().getLast(), userId)
         );
-        return chat.getMessages().stream()
-                .map(msg -> toDto(msg, myUserId))
-                .collect(Collectors.toList());
     }
 
     private static MessageDto toDto(MessageDB message, UUID myUserId) {

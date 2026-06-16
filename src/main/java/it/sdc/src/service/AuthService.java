@@ -13,6 +13,7 @@ import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.exceptions.LoginFailedException;
+import it.sdc.src.exceptions.PasswordConflictException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.exceptions.UsernameAlreadyTakenException;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,24 @@ public class AuthService {
     }
 
     /**
+     * Generate a new session for the user
+     * @param user user
+     * @return a new session for the user
+     */
+    private UserSessionDB yieldSession(UserDB user) {
+        // TODO: read token validity from application.yaml
+        byte[][] tokens = yieldTokens();
+        return userSessionRepository.save(UserSessionDB.builder()
+                .user(user)
+                .accessToken(tokens[0])
+                .accessTokenExpires(Instant.now())
+                .refreshToken(tokens[1])
+                .refreshTokenExpires(Instant.now())
+                .build()
+        );
+    }
+
+    /**
      * Logs in the user yielding a new valid session
      * @param username username
      * @param password password
@@ -57,16 +76,7 @@ public class AuthService {
         UserDB user = userRepository.findByUsernameAndPasswordHash(username, PASSWORD_ENCODER.encode(password))
                 .orElseThrow(() -> new LoginFailedException("Invalid username or password"));
 
-        byte[][] tokens = yieldTokens();
-        UserSessionDB newSession = UserSessionDB.builder()
-                .id(user.getId())
-                .accessToken(tokens[0])
-                .accessTokenExpires(Instant.now())
-                .refreshToken(tokens[1])
-                .refreshTokenExpires(Instant.now())
-                .build();
-
-        newSession = userSessionRepository.save(newSession);
+        UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);
     }
 
@@ -116,19 +126,12 @@ public class AuthService {
         ).orElseThrow(
                 () -> new LoginFailedException("Invalid refresh token")
         );
-        byte[][] tokens = yieldTokens();
+        UserDB user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found")
+        );
 
-        UserSessionDB newSession = UserSessionDB.builder()
-                .id(session.getId())
-                .accessToken(tokens[0])
-                .accessTokenExpires(Instant.now())
-                .refreshToken(tokens[1])
-                .refreshTokenExpires(Instant.now())
-                .build();
-
-        newSession = userSessionRepository.save(newSession);
         userSessionRepository.delete(session);
-
+        UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);
     }
 
@@ -150,17 +153,7 @@ public class AuthService {
                 .build();
 
         newUser = userRepository.save(newUser);
-
-        byte[][] tokens = yieldTokens();
-        UserSessionDB newSession = UserSessionDB.builder()
-                .id(newUser.getId())
-                .accessToken(tokens[0])
-                .accessTokenExpires(Instant.now())
-                .refreshToken(tokens[1])
-                .refreshTokenExpires(Instant.now())
-                .build();
-
-        newSession = userSessionRepository.save(newSession);
+        UserSessionDB newSession = yieldSession(newUser);
         return toDto(newSession);
     }
 
@@ -220,6 +213,10 @@ public class AuthService {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
+        // Guarantee idempotency without stressing the DB too much
+        if (user.getUsername().equals(username))
+            return toDto(user);
+
         if (userRepository.existsByUsername(username))
             throw new UsernameAlreadyTakenException("Username is already taken");
         user.setUsername(username);
@@ -228,17 +225,23 @@ public class AuthService {
     }
 
     /**
-     * Change the user's password
+     * Change the user's password, invalidating all previous sessions
      * @param userId user ID
      * @param newPassword the new password to set
      * @throws UserNotFoundException on bad user ID
      */
-    public void changePassword(UUID userId, String newPassword) {
+    public UserSessionDto changePassword(UUID userId, String newPassword) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
+        if (PASSWORD_ENCODER.matches(newPassword, user.getPasswordHash()))
+            throw new PasswordConflictException("New password should not be the same as the old password");
         user.setPasswordHash(PASSWORD_ENCODER.encode(newPassword));
         userRepository.save(user);
+
+        userSessionRepository.deleteAllByUserId(user.getId());
+        UserSessionDB newSession = yieldSession(user);
+        return toDto(newSession);
     }
 
     private static UserDto toDto(UserDB user) {
