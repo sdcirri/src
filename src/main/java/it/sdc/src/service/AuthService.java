@@ -1,5 +1,6 @@
 package it.sdc.src.service;
 
+import it.sdc.src.auth.TokenIntrospectionCache;
 import it.sdc.src.config.AuthProperties;
 import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
@@ -34,6 +35,8 @@ public class AuthService {
     private final UserSessionDBRepository userSessionRepository;
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
+
+    private final TokenIntrospectionCache tokenIntrospectionCache;
 
     private final AuthProperties authProperties;
 
@@ -123,6 +126,7 @@ public class AuthService {
         UserSessionDB session = userSessionRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
 
+        tokenIntrospectionCache.evict(session);
         userSessionRepository.delete(session);
         UserSessionDB newSession = yieldSession(session.getUser());
         return toDto(newSession);
@@ -237,6 +241,7 @@ public class AuthService {
         user.setPasswordHash(PASSWORD_ENCODER.encode(newPassword));
         userRepository.save(user);
 
+        tokenIntrospectionCache.evictAll(userSessionRepository.findAllByUser_Id(user.getId()));
         userSessionRepository.deleteAllByUser_Id(user.getId());
         UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);

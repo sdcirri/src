@@ -47,4 +47,8 @@ public class UserPrincipal implements OAuth2AuthenticatedPrincipal {
     public boolean isExpired() {
         return Instant.now().isAfter(validUntil);
     }
+
+    public boolean isRefreshExpired() {
+        return Instant.now().isAfter(refreshTokenValidUntil);
+    }
 }
