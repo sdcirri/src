@@ -68,7 +68,7 @@ public class ChatService {
                         .build()
                 ));
 
-        messageRepository.save(MessageDB.builder()
+        MessageDB message = messageRepository.save(MessageDB.builder()
                         .chat(chat)
                         .timestamp(Instant.now())
                         .sender(user1Id.equals(myUserId) ? user1 : user2)
@@ -76,7 +76,7 @@ public class ChatService {
                         .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
                         .build()
         );
-        return toDto(chat, myUserId);
+        return toDto(chat, message, myUserId);
     }
 
     /**
@@ -102,6 +102,15 @@ public class ChatService {
                 chat.getId(),
                 user1Id.equals(userId) ? user2Id : user1Id,
                 toDto(chat.getMessages().getLast(), userId)
+        );
+    }
+
+    private static ChatDto toDto(ChatDB chat, MessageDB message, UUID userId) {
+        UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
+        return new ChatDto(
+                chat.getId(),
+                user1Id.equals(userId) ? user2Id : user1Id,
+                toDto(message, userId)
         );
     }
 
