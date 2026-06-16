@@ -13,10 +13,7 @@ import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
-import it.sdc.src.exceptions.LoginFailedException;
-import it.sdc.src.exceptions.PasswordConflictException;
-import it.sdc.src.exceptions.UserNotFoundException;
-import it.sdc.src.exceptions.UsernameAlreadyTakenException;
+import it.sdc.src.exceptions.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -160,6 +157,9 @@ public class AuthService {
      * @throws LoginFailedException on bad payload
      */
     public UserCryptoDto finalizeRegistration(UUID userId, UserRegistrationFinalizationRequest request) {
+        if (userCryptoRepository.existsById(userId))
+            throw new CryptoConflictException("Attempt to re-init user crypto");
+
         UserDB newUser = userRepository.findById(userId).orElseThrow(
                 () -> new LoginFailedException("Bad request")
         );
