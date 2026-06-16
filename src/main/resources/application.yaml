@@ -5,3 +5,16 @@ spring:
 auth:
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
+
+management:
+  server:
+    address: 127.0.0.1
+    port: 8081
+  endpoints:
+    enabled-by-default: false
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      enabled: true
