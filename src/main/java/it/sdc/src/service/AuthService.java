@@ -15,6 +15,7 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
+import it.sdc.src.service.mapping.UserSessionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class AuthService {
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
 
+    private final UserSessionMapper userSessionMapper;
     private final UserCryptoMapper userCryptoMapper;
 
     private final TokenIntrospectionCache tokenIntrospectionCache;
@@ -85,7 +87,7 @@ public class AuthService {
             throw new LoginFailedException("Invalid password");
 
         UserSessionDB newSession = yieldSession(user);
-        return toDto(newSession);
+        return userSessionMapper.toDto(newSession);
     }
 
     /**
@@ -102,7 +104,7 @@ public class AuthService {
         tokenIntrospectionCache.evict(session);
         userSessionRepository.delete(session);
         UserSessionDB newSession = yieldSession(session.getUser());
-        return toDto(newSession);
+        return userSessionMapper.toDto(newSession);
     }
 
     /**
@@ -124,7 +126,7 @@ public class AuthService {
 
         newUser = userRepository.save(newUser);
         UserSessionDB newSession = yieldSession(newUser);
-        return toDto(newSession);
+        return userSessionMapper.toDto(newSession);
     }
 
     /**
@@ -190,16 +192,6 @@ public class AuthService {
 
         tokenIntrospectionCache.evictAll(oldSessions);
         userSessionRepository.deleteAll(oldSessions);
-        return toDto(newSession);
-    }
-
-    private static UserSessionDto toDto(UserSessionDB userSession) {
-        return new UserSessionDto(
-                userSession.getId(),
-                Base64.getEncoder().encodeToString(userSession.getAccessToken()),
-                userSession.getAccessTokenExpires().toEpochMilli(),
-                Base64.getEncoder().encodeToString(userSession.getRefreshToken()),
-                userSession.getRefreshTokenExpires().toEpochMilli()
-        );
+        return userSessionMapper.toDto(newSession);
     }
 }

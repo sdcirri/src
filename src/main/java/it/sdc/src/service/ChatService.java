@@ -12,6 +12,8 @@ import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
+import it.sdc.src.service.mapping.ChatMapper;
+import it.sdc.src.service.mapping.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,9 @@ public class ChatService {
     private final UserDBRepository userRepository;
     private final MessageDBRepository messageRepository;
 
+    private final ChatMapper chatMapper;
+    private final MessageMapper messageMapper;
+
     /**
      * List user previous chats
      * @param myUserId current user ID
@@ -36,7 +41,7 @@ public class ChatService {
      */
     public List<ChatDto> getChats(UUID myUserId) {
         return chatRepository.findByUserId(myUserId).stream()
-                .map(chat -> toDto(chat, myUserId))
+                .map(chat -> chatMapper.toDto(chat, myUserId))
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()
                 )
@@ -79,7 +84,7 @@ public class ChatService {
                         .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
                         .build()
         );
-        return toDto(message, myUserId);
+        return messageMapper.toDto(message, myUserId);
     }
 
     /**
@@ -95,27 +100,7 @@ public class ChatService {
                 () -> new ChatNotFoundException("Chat not found")
         );
         return chat.getMessages().stream()
-                .map(msg -> toDto(msg, myUserId))
+                .map(msg -> messageMapper.toDto(msg, myUserId))
                 .toList();
-    }
-
-    private static ChatDto toDto(ChatDB chat, UUID userId) {
-        UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
-        return new ChatDto(
-                chat.getId(),
-                user1Id.equals(userId) ? user2Id : user1Id,
-                toDto(chat.getMessages().getLast(), userId)
-        );
-    }
-
-    private static MessageDto toDto(MessageDB message, UUID myUserId) {
-        return new MessageDto(
-                message.getTimestamp().toEpochMilli(),
-                Base64.getEncoder().encodeToString(message.getData()),
-                Base64.getEncoder().encodeToString(message.getIv()),
-                message.getSender().getId().equals(myUserId) ?
-                        MessageDto.MessageDirection.OUTGOING :
-                        MessageDto.MessageDirection.INCOMING
-        );
     }
 }
