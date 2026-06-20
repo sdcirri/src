@@ -17,21 +17,26 @@ public class UserCryptoDB {
     private UUID id;
 
     @Column(nullable = false)
+    @Setter
     private byte[] kekSalt;
 
     @Column(nullable = false)
+    @Setter
     private byte[] ivEd25519;
 
     @Column(nullable = false)
+    @Setter
     private byte[] privateEd25519;
 
     @Column(nullable = false)
     private byte[] publicEd25519;
 
     @Column(nullable = false)
+    @Setter
     private byte[] ivX25519;
 
     @Column(nullable = false)
+    @Setter
     private byte[] privateX25519;
 
     @Column(nullable = false)

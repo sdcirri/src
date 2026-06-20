@@ -49,6 +49,6 @@ public class AuthController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @Valid @RequestBody PasswordChangeRequest request
     ) {
-        return authService.changePassword(userPrincipal.getUserId(), request.password());
+        return authService.changePassword(userPrincipal.getUserId(), request);
     }
 }

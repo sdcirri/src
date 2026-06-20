@@ -12,6 +12,7 @@ import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
+import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -161,22 +163,34 @@ public class AuthService {
     /**
      * Change the user's password, invalidating all previous sessions
      * @param userId user ID
-     * @param newPassword the new password to set
+     * @param request the new password to set and re-encrypted user secrets
      * @throws UserNotFoundException on bad user ID
      */
     @Transactional
-    public UserSessionDto changePassword(UUID userId, String newPassword) {
+    public UserSessionDto changePassword(UUID userId, PasswordChangeRequest request) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        if (PASSWORD_ENCODER.matches(newPassword, user.getPasswordHash()))
+        if (PASSWORD_ENCODER.matches(request.password(), user.getPasswordHash()))
             throw new PasswordConflictException("New password should not be the same as the old password");
-        user.setPasswordHash(PASSWORD_ENCODER.encode(newPassword));
+        user.setPasswordHash(PASSWORD_ENCODER.encode(request.password()));
+
+        Base64.Decoder decoder = Base64.getDecoder();
+        UserCryptoDB crypto = user.getCrypto();
+
+        crypto.setKekSalt(decoder.decode(request.newKekSalt()));
+        crypto.setIvEd25519(decoder.decode(request.newIvEd25519()));
+        crypto.setPrivateEd25519(decoder.decode(request.newPrivateEd25519()));
+        crypto.setIvX25519(decoder.decode(request.newIvX25519()));
+        crypto.setPrivateX25519(decoder.decode(request.newPrivateX25519()));
+
         userRepository.save(user);
 
-        tokenIntrospectionCache.evictAll(userSessionRepository.findAllByUser_Id(user.getId()));
-        userSessionRepository.deleteAllByUser_Id(user.getId());
+        List<UserSessionDB> oldSessions = userSessionRepository.findAllByUser_Id(user.getId());
         UserSessionDB newSession = yieldSession(user);
+
+        tokenIntrospectionCache.evictAll(oldSessions);
+        userSessionRepository.deleteAll(oldSessions);
         return toDto(newSession);
     }
 
