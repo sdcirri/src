@@ -7,15 +7,17 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
-import it.sdc.src.exceptions.LoginFailedException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.exceptions.UsernameAlreadyTakenException;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import it.sdc.src.service.mapping.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +30,8 @@ public class UserService {
 
     private final UserCryptoMapper userCryptoMapper;
     private final UserMapper userMapper;
+
+    private final ProPicNormalizer proPicNormalizer;
 
     /**
      * Search for users by username
@@ -59,11 +63,11 @@ public class UserService {
      * Returns the crypto specs for the current user
      * @param userId current user ID
      * @return the user crypto specs
-     * @throws LoginFailedException on bad user ID
+     * @throws UserNotFoundException on bad user ID
      */
     public UserCryptoDto getMyCryptoSpecs(UUID userId) {
         UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
-                () -> new LoginFailedException("User not found")
+                () -> new UserNotFoundException("User not found")
         );
         return userCryptoMapper.toDto(userCrypto);
     }
@@ -91,12 +95,12 @@ public class UserService {
      * @return the updated user info
      * @throws UserNotFoundException on bad user ID
      */
+    @Transactional
     public UserDto setDisplayName(UUID userId, String displayName) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
         user.setDisplayName(displayName);
-        user = userRepository.save(user);
         return userMapper.toDto(user);
     }
 
@@ -108,6 +112,7 @@ public class UserService {
      * @throws UserNotFoundException on bad user ID
      * @throws UsernameAlreadyTakenException when the desired username is already taken
      */
+    @Transactional
     public UserDto changeUsername(UUID userId, String username) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
@@ -118,8 +123,34 @@ public class UserService {
 
         if (userRepository.existsByUsername(username))
             throw new UsernameAlreadyTakenException("Username is already taken");
-        user.setUsername(username);
-        user = userRepository.save(user);
+
+        try {
+            user.setUsername(username);
+            userRepository.flush();
+        }
+        catch (DataIntegrityViolationException e) {
+            throw new UsernameAlreadyTakenException("Username is already taken");
+        }
+        return userMapper.toDto(user);
+    }
+
+    /**
+     * Change the user's profile picture
+     * @param userId user ID
+     * @param rawImage image uploaded by the user
+     * @return the updated user info
+     */
+    @Transactional
+    public UserDto setProPic(UUID userId, byte[] rawImage) {
+        UserDB user = userRepository.findById(userId).orElseThrow(
+                () -> new UserNotFoundException("User not found")
+        );
+        try {
+            user.setProPic(proPicNormalizer.normalizeImage(rawImage));
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Unexpected error while uploading image: ", e);
+        }
         return userMapper.toDto(user);
     }
 }

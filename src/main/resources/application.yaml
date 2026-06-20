@@ -6,6 +6,11 @@ auth:
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
 
+media:
+  propics:
+    resolution-px: 480
+    compression-ratio: 85
+
 management:
   server:
     address: 127.0.0.1

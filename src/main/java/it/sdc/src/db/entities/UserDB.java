@@ -35,6 +35,10 @@ public class UserDB {
     @Column(nullable = false)
     private Instant registrationTimeUTC;
 
+    @Setter
+    @Column(nullable = false)
+    private byte[] proPic;
+
     @OneToOne(mappedBy = "userDB", cascade = CascadeType.ALL, orphanRemoval = true)
     private UserCryptoDB crypto;
 

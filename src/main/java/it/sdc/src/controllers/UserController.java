@@ -5,6 +5,7 @@ import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.requests.accountedits.DisplayNameChangeRequest;
+import it.sdc.src.dto.requests.accountedits.ProPicChangeRequest;
 import it.sdc.src.dto.requests.accountedits.UsernameChangeRequest;
 import it.sdc.src.service.UserService;
 import jakarta.validation.Valid;
@@ -13,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,6 +55,19 @@ public class UserController {
             @Valid @RequestBody UsernameChangeRequest request
     ) {
         return userService.changeUsername(userPrincipal.getUserId(), request.username());
+    }
+
+    @PutMapping("/me/propic")
+    public UserDto setProPic(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam("image") MultipartFile image
+    ) {
+        try {
+            return userService.setProPic(userPrincipal.getUserId(), image.getBytes());
+        }
+        catch (IOException e) {
+            throw new RuntimeException("Couldn't process image: ", e);
+        }
     }
 
     @GetMapping("/me/crypto")
