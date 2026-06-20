@@ -8,7 +8,7 @@ import it.sdc.src.db.repositories.MessageDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
-import it.sdc.src.dto.requests.accountedits.MessageRequest;
+import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
@@ -21,7 +21,6 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +40,7 @@ public class ChatService {
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()
                 )
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -49,10 +48,10 @@ public class ChatService {
      * @param myUserId current user ID
      * @param contactId ID of the user to contact
      * @param messageRequest message request payload
-     * @return the updated chat descriptor with the new message
+     * @return the new message
      */
     @Transactional
-    public ChatDto sendMessage(UUID myUserId, UUID contactId, MessageRequest messageRequest) {
+    public MessageDto sendMessage(UUID myUserId, UUID contactId, MessageRequest messageRequest) {
         if (myUserId.equals(contactId))
             throw new SelfChatException("You can't start new chat with yourself");
 
@@ -80,7 +79,7 @@ public class ChatService {
                         .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
                         .build()
         );
-        return toDto(chat, message, myUserId);
+        return toDto(message, myUserId);
     }
 
     /**
@@ -97,7 +96,7 @@ public class ChatService {
         );
         return chat.getMessages().stream()
                 .map(msg -> toDto(msg, myUserId))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private static ChatDto toDto(ChatDB chat, UUID userId) {
@@ -106,15 +105,6 @@ public class ChatService {
                 chat.getId(),
                 user1Id.equals(userId) ? user2Id : user1Id,
                 toDto(chat.getMessages().getLast(), userId)
-        );
-    }
-
-    private static ChatDto toDto(ChatDB chat, MessageDB message, UUID userId) {
-        UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
-        return new ChatDto(
-                chat.getId(),
-                user1Id.equals(userId) ? user2Id : user1Id,
-                toDto(message, userId)
         );
     }
 

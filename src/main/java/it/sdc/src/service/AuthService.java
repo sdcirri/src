@@ -8,13 +8,12 @@ import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
-import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
-import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.exceptions.*;
+import it.sdc.src.service.mapping.UserCryptoMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +34,8 @@ public class AuthService {
     private final UserSessionDBRepository userSessionRepository;
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
+
+    private final UserCryptoMapper userCryptoMapper;
 
     private final TokenIntrospectionCache tokenIntrospectionCache;
 
@@ -84,35 +85,6 @@ public class AuthService {
 
         UserSessionDB newSession = yieldSession(user);
         return toDto(newSession);
-    }
-
-    /**
-     * Returns the crypto specs for the current user
-     * @param userId current user ID
-     * @return the user crypto specs
-     * @throws LoginFailedException on bad user ID
-     */
-    public UserCryptoDto getMyCryptoSpecs(UUID userId) {
-        UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
-                () -> new LoginFailedException("User not found")
-        );
-        return toDto(userCrypto);
-    }
-
-    /**
-     * Returns another user's public keys for contacting them
-     * @param userId user to contact
-     * @return user's public keys
-     */
-    public ContactCryptoDto getUserCryptoSpecs(UUID userId) {
-        UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
-                () -> new UserNotFoundException("User not found")
-        );
-        Base64.Encoder encoder = Base64.getEncoder();
-        return new ContactCryptoDto(
-                encoder.encodeToString(userCrypto.getPublicEd25519()),
-                encoder.encodeToString(userCrypto.getPublicX25519())
-        );
     }
 
     /**
@@ -183,46 +155,7 @@ public class AuthService {
                 .build();
 
         newUserCrypto = userCryptoRepository.save(newUserCrypto);
-        return toDto(newUserCrypto);
-    }
-
-    /**
-     * Change the user's display name
-     * @param userId user ID
-     * @param displayName the desired display name
-     * @return the updated user info
-     * @throws UserNotFoundException on bad user ID
-     */
-    public UserDto setDisplayName(UUID userId, String displayName) {
-        UserDB user = userRepository.findById(userId).orElseThrow(
-                () -> new UserNotFoundException("User not found")
-        );
-        user.setDisplayName(displayName);
-        user = userRepository.save(user);
-        return toDto(user);
-    }
-
-    /**
-     * Change the user's unique username
-     * @param userId user ID
-     * @param username the desired username
-     * @return the updated user info
-     * @throws UserNotFoundException on bad user ID
-     * @throws UsernameAlreadyTakenException when the desired username is already taken
-     */
-    public UserDto changeUsername(UUID userId, String username) {
-        UserDB user = userRepository.findById(userId).orElseThrow(
-                () -> new UserNotFoundException("User not found")
-        );
-        // Guarantee idempotency without stressing the DB too much
-        if (user.getUsername().equals(username))
-            return toDto(user);
-
-        if (userRepository.existsByUsername(username))
-            throw new UsernameAlreadyTakenException("Username is already taken");
-        user.setUsername(username);
-        user = userRepository.save(user);
-        return toDto(user);
+        return userCryptoMapper.toDto(newUserCrypto);
     }
 
     /**
@@ -247,14 +180,6 @@ public class AuthService {
         return toDto(newSession);
     }
 
-    private static UserDto toDto(UserDB user) {
-        return new UserDto(
-                user.getId(),
-                user.getUsername(),
-                user.getDisplayName()
-        );
-    }
-
     private static UserSessionDto toDto(UserSessionDB userSession) {
         return new UserSessionDto(
                 userSession.getId(),
@@ -262,20 +187,6 @@ public class AuthService {
                 userSession.getAccessTokenExpires().toEpochMilli(),
                 Base64.getEncoder().encodeToString(userSession.getRefreshToken()),
                 userSession.getRefreshTokenExpires().toEpochMilli()
-        );
-    }
-
-    private static UserCryptoDto toDto(UserCryptoDB userCrypto) {
-        Base64.Encoder encoder = Base64.getEncoder();
-        return new UserCryptoDto(
-                userCrypto.getId(),
-                encoder.encodeToString(userCrypto.getKekSalt()),
-                encoder.encodeToString(userCrypto.getPrivateEd25519()),
-                encoder.encodeToString(userCrypto.getIvEd25519()),
-                encoder.encodeToString(userCrypto.getPublicEd25519()),
-                encoder.encodeToString(userCrypto.getPrivateX25519()),
-                encoder.encodeToString(userCrypto.getIvX25519()),
-                encoder.encodeToString(userCrypto.getPublicX25519())
         );
     }
 }

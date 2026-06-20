@@ -1,4 +1,4 @@
-package it.sdc.src.dto.requests.accountedits;
+package it.sdc.src.dto.requests;
 
 import it.sdc.src.validation.Base64String;
 import jakarta.validation.constraints.NotNull;

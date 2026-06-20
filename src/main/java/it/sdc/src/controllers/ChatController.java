@@ -3,11 +3,11 @@ package it.sdc.src.controllers;
 import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
-import it.sdc.src.dto.requests.accountedits.MessageRequest;
+import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.ChatService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -36,9 +36,10 @@ public class ChatController {
     }
 
     @PostMapping("/{contactId}")
-    public ChatDto sendMessage(
+    @ResponseStatus(HttpStatus.CREATED)
+    public MessageDto sendMessage(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable @NotNull UUID contactId,
+            @PathVariable UUID contactId,
             @Valid @RequestBody MessageRequest request
     ) {
         return chatService.sendMessage(userPrincipal.getUserId(), contactId, request);

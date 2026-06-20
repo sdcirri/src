@@ -11,16 +11,16 @@ import java.util.UUID;
 
 public interface UserSessionDBRepository extends JpaRepository<UserSessionDB, UUID> {
     @Query("""
-        select s from UserSessionDB s
-        join fetch s.user
-        where s.accessToken = :token
+        SELECT s FROM UserSessionDB s
+        JOIN FETCH s.user
+        WHERE s.accessToken = :token
     """)
     Optional<UserSessionDB> findByAccessToken(@Param("token") byte[] token);
 
     @Query("""
-        select s from UserSessionDB s
-        join fetch s.user
-        where s.refreshToken = :token
+        SELECT s FROM UserSessionDB s
+        JOIN FETCH s.user
+        WHERE s.refreshToken = :token
     """)
     Optional<UserSessionDB> findByRefreshToken(@Param("token") byte[] token);
 
