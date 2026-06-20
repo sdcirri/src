@@ -16,7 +16,6 @@ import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +29,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    private static final PasswordEncoder PASSWORD_ENCODER = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
+    private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom;
 
     private final UserSessionDBRepository userSessionRepository;
@@ -82,7 +81,7 @@ public class AuthService {
         UserDB user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new LoginFailedException("Invalid username"));
 
-        if (!PASSWORD_ENCODER.matches(password, user.getPasswordHash()))
+        if (!passwordEncoder.matches(password, user.getPasswordHash()))
             throw new LoginFailedException("Invalid password");
 
         UserSessionDB newSession = yieldSession(user);
@@ -120,7 +119,7 @@ public class AuthService {
                 .username(request.username())
                 .displayName(request.displayName())
                 .registrationTimeUTC(Instant.now())
-                .passwordHash(PASSWORD_ENCODER.encode(request.password()))
+                .passwordHash(passwordEncoder.encode(request.password()))
                 .build();
 
         newUser = userRepository.save(newUser);
@@ -171,9 +170,9 @@ public class AuthService {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        if (PASSWORD_ENCODER.matches(request.password(), user.getPasswordHash()))
+        if (passwordEncoder.matches(request.password(), user.getPasswordHash()))
             throw new PasswordConflictException("New password should not be the same as the old password");
-        user.setPasswordHash(PASSWORD_ENCODER.encode(request.password()));
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
 
         Base64.Decoder decoder = Base64.getDecoder();
         UserCryptoDB crypto = user.getCrypto();
