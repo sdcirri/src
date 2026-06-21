@@ -5,7 +5,6 @@ import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.requests.accountedits.DisplayNameChangeRequest;
-import it.sdc.src.dto.requests.accountedits.ProPicChangeRequest;
 import it.sdc.src.dto.requests.accountedits.UsernameChangeRequest;
 import it.sdc.src.service.UserService;
 import jakarta.validation.Valid;

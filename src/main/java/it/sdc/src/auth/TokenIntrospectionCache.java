@@ -28,6 +28,24 @@ public class TokenIntrospectionCache {
             .expireAfterWrite(Duration.ofMinutes(15))
             .build();
 
+    private static byte[] decodeToken(String token) {
+        try {
+            return Base64.getDecoder().decode(token);
+        } catch (IllegalArgumentException e) {
+            throw new BadOpaqueTokenException("Bad opaque token", e);
+        }
+    }
+
+    private static UserPrincipal fromSession(UserSessionDB session) {
+        return new UserPrincipal(
+                session.getUser().getId(),
+                session.getUser().getUsername(),
+                session.getAccessTokenExpires(),
+                session.getRefreshToken(),
+                session.getRefreshTokenExpires()
+        );
+    }
+
     public UserPrincipal introspectAccessToken(String bearerToken) {
         UserPrincipal principal = accessCache.get(bearerToken, this::loadAccess);
         if (principal.isExpired()) {
@@ -56,21 +74,21 @@ public class TokenIntrospectionCache {
     }
 
     private UserPrincipal loadAccess(String bearerToken) {
-        byte[] decoded = BaseIntrospector.decodeToken(bearerToken);
+        byte[] decoded = decodeToken(bearerToken);
         UserSessionDB session = sessionRepository.findByAccessToken(decoded)
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getAccessTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
-        return BaseIntrospector.fromSession(session);
+        return fromSession(session);
     }
 
     private UserPrincipal loadRefresh(String bearerToken) {
-        byte[] decoded = BaseIntrospector.decodeToken(bearerToken);
+        byte[] decoded = decodeToken(bearerToken);
         UserSessionDB session = sessionRepository.findByRefreshToken(decoded)
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getRefreshTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
-        return BaseIntrospector.fromSession(session);
+        return fromSession(session);
     }
 
     private static String key(byte[] token) {
