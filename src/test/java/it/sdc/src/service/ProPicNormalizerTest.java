@@ -18,7 +18,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class ProPicNormalizerTest {
-    private ProPicEncodingProperties properties;
     private ProPicNormalizer normalizer;
 
     @BeforeEach
