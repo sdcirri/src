@@ -18,11 +18,12 @@ import org.mockito.ArgumentMatchers;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static it.sdc.src.test.fixtures.CryptoFixtures.mockPrivateCryptoSpecs;
+import static it.sdc.src.test.fixtures.CryptoFixtures.mockPublicCryptoSpecs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -96,25 +97,12 @@ public class UserServiceTest {
         assertThatThrownBy(() -> userService.getUserInfo(badUserId)).isInstanceOf(UserNotFoundException.class);
     }
 
-    private static UserCryptoDto mockPrivateCryptoSpecs(UUID userId) {
-        return new UserCryptoDto(
-                userId,
-                Base64.getEncoder().encodeToString(new byte[] {1}),
-                Base64.getEncoder().encodeToString(new byte[] {2, 3, 4}),
-                Base64.getEncoder().encodeToString(new byte[] {5, 6}),
-                Base64.getEncoder().encodeToString(new byte[] {7, 8}),
-                Base64.getEncoder().encodeToString(new byte[] {9, 10, 11}),
-                Base64.getEncoder().encodeToString(new byte[] {12, 13}),
-                Base64.getEncoder().encodeToString(new byte[] {14, 15})
-        );
-    }
-
     @Test
     void getMyCryptoSpecs_shouldReturnOwnCryptoSpecs() {
         UUID userId = UUID.randomUUID();
         UserCryptoDB loggedUserCrypto = mock(UserCryptoDB.class);
         when(userCryptoRepository.findById(userId)).thenReturn(Optional.of(loggedUserCrypto));
-        when(userCryptoMapper.toDto(loggedUserCrypto)).thenReturn(mockPrivateCryptoSpecs(userId));
+        when(userCryptoMapper.toPrivateDto(loggedUserCrypto)).thenReturn(mockPrivateCryptoSpecs(userId));
 
         UserCryptoDto result = userService.getMyCryptoSpecs(userId);
         assertThat(result).isEqualTo(mockPrivateCryptoSpecs(userId));
@@ -130,15 +118,12 @@ public class UserServiceTest {
     @Test
     void getUserCryptoSpecs_shouldReturnPublicCryptoSpecs() {
         UUID userId = UUID.randomUUID();
-        byte[] x25519 = new byte[] {7, 8}, ed25519 = new byte[] {14, 15};
         UserCryptoDB userCrypto = mock(UserCryptoDB.class);
-        when(userCrypto.getPublicX25519()).thenReturn(x25519);
-        when(userCrypto.getPublicEd25519()).thenReturn(ed25519);
         when(userCryptoRepository.findById(userId)).thenReturn(Optional.of(userCrypto));
+        when(userCryptoMapper.toPublicDto(userCrypto)).thenReturn(mockPublicCryptoSpecs());
 
         ContactCryptoDto result = userService.getUserCryptoSpecs(userId);
-        assertThat(result.publicX25519()).isEqualTo(Base64.getEncoder().encodeToString(x25519));
-        assertThat(result.publicEd25519()).isEqualTo(Base64.getEncoder().encodeToString(ed25519));
+        assertThat(result).isEqualTo(mockPublicCryptoSpecs());
     }
 
     @Test

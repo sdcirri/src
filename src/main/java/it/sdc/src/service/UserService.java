@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
-import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,7 +68,7 @@ public class UserService {
         UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        return userCryptoMapper.toDto(userCrypto);
+        return userCryptoMapper.toPrivateDto(userCrypto);
     }
 
     /**
@@ -81,11 +80,7 @@ public class UserService {
         UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        Base64.Encoder encoder = Base64.getEncoder();
-        return new ContactCryptoDto(
-                encoder.encodeToString(userCrypto.getPublicEd25519()),
-                encoder.encodeToString(userCrypto.getPublicX25519())
-        );
+        return userCryptoMapper.toPublicDto(userCrypto);
     }
 
     /**

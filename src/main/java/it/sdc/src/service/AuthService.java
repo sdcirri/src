@@ -158,7 +158,7 @@ public class AuthService {
                 .build();
 
         newUserCrypto = userCryptoRepository.save(newUserCrypto);
-        return userCryptoMapper.toDto(newUserCrypto);
+        return userCryptoMapper.toPrivateDto(newUserCrypto);
     }
 
     /**
