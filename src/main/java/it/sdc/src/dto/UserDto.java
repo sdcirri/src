@@ -11,5 +11,5 @@ public record UserDto(
         @NotNull UUID id,
         @NotNull @ValidUsername String username,
         @Length(min = 1, max = 255) String displayName,
-        @NotNull @Base64String String proPic
+        @Base64String String proPic
 ) {}

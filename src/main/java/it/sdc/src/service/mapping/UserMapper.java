@@ -13,8 +13,8 @@ public class UserMapper {
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
-                // TODO: load default propic when not set
-                Base64.getEncoder().encodeToString(user.getProPic())
+                // let the frontend manage users with no propic set
+                user.getProPic() == null ? null : Base64.getEncoder().encodeToString(user.getProPic())
         );
     }
 }
