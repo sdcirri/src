@@ -22,6 +22,17 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
             Pattern.compile("[^A-Za-z0-9]")
     };
 
+    private final HttpClient httpClient;
+
+    public PasswordStrengthValidator() {
+        this(HttpClient.newHttpClient());
+    }
+
+    // package-private constructor for tests
+    PasswordStrengthValidator(HttpClient httpClient) {
+        this.httpClient = httpClient;
+    }
+
     /**
      * Check the password for:
      *  - at least one uppercase letter
@@ -52,7 +63,7 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
      * @param password user chosen password
      * @return whether the password was involved in a data breach
      */
-    private static boolean isPwned(String password) {
+    private boolean isPwned(String password) {
         String sha1 = "";
         try {
             byte[] hash = MessageDigest.getInstance("SHA-1").digest(password.getBytes(StandardCharsets.UTF_8));
@@ -62,8 +73,8 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
         catch (NoSuchAlgorithmException ignored) {}
 
         String prefix = sha1.substring(0, 5), response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(
+        try {
+            response = httpClient.send(
                     HttpRequest.newBuilder(URI.create("https://api.pwnedpasswords.com/range/" + prefix)).GET().build(),
                     HttpResponse.BodyHandlers.ofString()
             ).body();
