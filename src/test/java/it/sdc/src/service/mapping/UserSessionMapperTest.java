@@ -17,7 +17,7 @@ public class UserSessionMapperTest {
     private UserSessionMapper userSessionMapper;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         userSessionMapper = new UserSessionMapper();
     }
 

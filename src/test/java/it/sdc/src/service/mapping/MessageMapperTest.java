@@ -18,12 +18,12 @@ public class MessageMapperTest {
     private MessageMapper messageMapper;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         messageMapper = new MessageMapper();
     }
 
     @Test
-    public void toDto_mapsMessageCorrectly() {
+    void toDto_mapsMessageCorrectly() {
         UUID messageId = UUID.randomUUID(), chatId = UUID.randomUUID();
         UUID user1Id = UUID.randomUUID(), user2Id = UUID.randomUUID();
         UserDB user1DB = mock(UserDB.class);
