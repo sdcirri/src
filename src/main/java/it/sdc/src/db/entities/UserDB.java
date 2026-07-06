@@ -17,7 +17,6 @@ import java.util.UUID;
 public class UserDB {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column
     private UUID id;
 
     @Setter
@@ -25,7 +24,6 @@ public class UserDB {
     private String username;
 
     @Setter
-    @Column
     private String displayName;
 
     @Setter
@@ -36,7 +34,6 @@ public class UserDB {
     private Instant registrationTimeUTC;
 
     @Setter
-    @Column
     private byte[] proPic;
 
     @OneToOne(mappedBy = "userDB", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -13,7 +13,6 @@ import java.util.UUID;
 @NoArgsConstructor
 public class UserCryptoDB {
     @Id
-    @Column
     private UUID id;
 
     @Column(nullable = false)

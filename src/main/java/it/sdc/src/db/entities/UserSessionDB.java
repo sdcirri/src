@@ -17,7 +17,6 @@ import java.util.UUID;
 @Builder
 public class UserSessionDB {
     @Id
-    @Column
     private UUID id;
 
     @Column(nullable = false, unique = true)

@@ -15,7 +15,6 @@ import java.util.UUID;
 public class MessageDB {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column
     private UUID id;
 
     @Column(nullable = false)
