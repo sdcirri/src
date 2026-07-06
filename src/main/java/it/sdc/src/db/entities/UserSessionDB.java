@@ -17,6 +17,7 @@ import java.util.UUID;
 @Builder
 public class UserSessionDB {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(nullable = false, unique = true)
