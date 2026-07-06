@@ -2,6 +2,18 @@ spring:
   application:
     name: src
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  sql:
+    init:
+      mode: never
+
 auth:
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
