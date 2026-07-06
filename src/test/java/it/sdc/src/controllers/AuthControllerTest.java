@@ -1,6 +1,8 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
+import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.UserSessionDto;
@@ -11,11 +13,13 @@ import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -26,10 +30,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,6 +70,9 @@ public class AuthControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    @Autowired
+    SecureRandom secureRandom;
+
     private static Validator validator;
 
     private UserDB mockUser() {
@@ -72,6 +82,52 @@ public class AuthControllerTest {
                 .passwordHash(passwordEncoder.encode("P@$$w0rd!!!"))
                 .registrationTimeUTC(Instant.now())
                 .build();
+    }
+
+    private UserSessionDB mockSession(UserDB user) {
+        byte[] accessToken = new byte[32], refreshToken = new byte[32];
+        secureRandom.nextBytes(accessToken);
+        secureRandom.nextBytes(refreshToken);
+        return UserSessionDB.builder()
+                .accessToken(accessToken)
+                .accessTokenExpires(Instant.now().plusSeconds(10000))
+                .refreshToken(refreshToken)
+                .refreshTokenExpires(Instant.now().plusSeconds(10000))
+                .user(user)
+                .build();
+    }
+
+    private UserSessionDB mockSessionWithExpiredAccessToken(UserDB user) {
+        byte[] accessToken = new byte[32], refreshToken = new byte[32];
+        secureRandom.nextBytes(accessToken);
+        secureRandom.nextBytes(refreshToken);
+        return UserSessionDB.builder()
+                .accessToken(accessToken)
+                .accessTokenExpires(Instant.now().minusSeconds(10000))
+                .refreshToken(refreshToken)
+                .refreshTokenExpires(Instant.now().plusSeconds(10000))
+                .user(user)
+                .build();
+    }
+
+    private BearerTokenAuthentication mockBearerRefreshTokenAuthentication(UserSessionDB session) {
+        UserPrincipal principal = new UserPrincipal(
+                session.getUser().getId(),
+                session.getUser().getUsername(),
+                session.getAccessTokenExpires(),
+                session.getRefreshToken(),
+                session.getRefreshTokenExpires()
+        );
+        return new BearerTokenAuthentication(
+                principal,
+                new OAuth2AccessToken(
+                        OAuth2AccessToken.TokenType.BEARER,
+                        Base64.getEncoder().encodeToString(session.getRefreshToken()),
+                        session.getRefreshTokenExpires().minusSeconds(1),
+                        session.getRefreshTokenExpires()
+                ),
+                null
+        );
     }
 
     @BeforeAll
@@ -113,7 +169,7 @@ public class AuthControllerTest {
         LoginRequest req = new LoginRequest("username", "12345678");
         mockMvc.perform(
                 post("/auth/login")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req))
         ).andExpect(status().isUnauthorized());
     }
@@ -124,13 +180,44 @@ public class AuthControllerTest {
         LoginRequest nullUsername = new LoginRequest(null, "P@$$w0rd!!!");
         mockMvc.perform(
                 post("/auth/login")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nullPassword))
         ).andExpect(status().isBadRequest());
         mockMvc.perform(
                 post("/auth/login")
-                        .contentType(String.valueOf(MediaType.APPLICATION_JSON))
+                        .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nullUsername))
         ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refresh_shouldYieldNewValidSession() throws Exception {
+        UserDB user = mockUser();
+        UserSessionDB userSession = mockSessionWithExpiredAccessToken(user);
+        userRepository.deleteAll();
+        userRepository.save(user);
+        sessionRepository.deleteAll();
+        sessionRepository.save(userSession);
+
+        MvcResult result = mockMvc.perform(
+                post("/auth/refresh")
+                        .with(authentication(mockBearerRefreshTokenAuthentication(userSession)))
+                        .contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+
+        UserSessionDto newSession = objectMapper.readValue(
+                result.getResponse().getContentAsString(),
+                UserSessionDto.class
+        );
+
+        assertThat(newSession).isNotNull();
+        Set<ConstraintViolation<UserSessionDto>> violations = validator.validate(newSession);
+        assertThat(violations).isEmpty();
+
+        assertThat(newSession.accessTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
+        assertThat(newSession.refreshTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
+        assertThat(newSession.refreshToken()).isNotEqualTo(
+                Base64.getEncoder().encodeToString(userSession.getRefreshToken())
+        );
     }
 }
