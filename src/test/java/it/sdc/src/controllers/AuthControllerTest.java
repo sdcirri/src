@@ -1,6 +1,5 @@
 package it.sdc.src.controllers;
 
-import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserDBRepository;
@@ -16,10 +15,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -35,8 +33,8 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Set;
 
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockBearerRefreshTokenHeader;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -110,24 +108,17 @@ public class AuthControllerTest {
                 .build();
     }
 
-    private BearerTokenAuthentication mockBearerRefreshTokenAuthentication(UserSessionDB session) {
-        UserPrincipal principal = new UserPrincipal(
-                session.getUser().getId(),
-                session.getUser().getUsername(),
-                session.getAccessTokenExpires(),
-                session.getRefreshToken(),
-                session.getRefreshTokenExpires()
-        );
-        return new BearerTokenAuthentication(
-                principal,
-                new OAuth2AccessToken(
-                        OAuth2AccessToken.TokenType.BEARER,
-                        Base64.getEncoder().encodeToString(session.getRefreshToken()),
-                        session.getRefreshTokenExpires().minusSeconds(1),
-                        session.getRefreshTokenExpires()
-                ),
-                null
-        );
+    private UserSessionDB mockSessionWithExpiredRefreshToken(UserDB user) {
+        byte[] accessToken = new byte[32], refreshToken = new byte[32];
+        secureRandom.nextBytes(accessToken);
+        secureRandom.nextBytes(refreshToken);
+        return UserSessionDB.builder()
+                .accessToken(accessToken)
+                .accessTokenExpires(Instant.now().plusSeconds(10000))
+                .refreshToken(refreshToken)
+                .refreshTokenExpires(Instant.now().minusSeconds(10000))
+                .user(user)
+                .build();
     }
 
     @BeforeAll
@@ -201,7 +192,7 @@ public class AuthControllerTest {
 
         MvcResult result = mockMvc.perform(
                 post("/auth/refresh")
-                        .with(authentication(mockBearerRefreshTokenAuthentication(userSession)))
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerRefreshTokenHeader(userSession))
                         .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
 
@@ -219,5 +210,41 @@ public class AuthControllerTest {
         assertThat(newSession.refreshToken()).isNotEqualTo(
                 Base64.getEncoder().encodeToString(userSession.getRefreshToken())
         );
+    }
+
+    @Test
+    void refresh_shouldRejectInvalidRefreshToken() throws Exception {
+        UserDB user = mockUser();
+        UserSessionDB userSession = mockSessionWithExpiredRefreshToken(user);
+        userRepository.deleteAll();
+        userRepository.save(user);
+        sessionRepository.deleteAll();
+        sessionRepository.save(userSession);
+
+        mockMvc.perform(
+                post("/auth/refresh")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerRefreshTokenHeader(userSession))
+                        .contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void register_shouldPreRegisterUserOnGoodRequest() throws Exception {
+
+    }
+
+    @Test
+    void register_shouldRejectBadRequests() throws Exception {
+
+    }
+
+    @Test
+    void register_shouldRejectAlreadyTakenUsername() throws Exception {
+
+    }
+
+    @Test
+    void register_shouldRejectWeakOrPwnedPasswords() throws Exception {
+
     }
 }
