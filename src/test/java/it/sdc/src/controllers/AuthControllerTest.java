@@ -34,6 +34,7 @@ import java.util.Base64;
 import java.util.Set;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockBearerRefreshTokenHeader;
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -73,28 +74,6 @@ public class AuthControllerTest {
 
     private static Validator validator;
 
-    private UserDB mockUser() {
-        return UserDB.builder()
-                .username("username")
-                .displayName("displayName")
-                .passwordHash(passwordEncoder.encode("P@$$w0rd!!!"))
-                .registrationTimeUTC(Instant.now())
-                .build();
-    }
-
-    private UserSessionDB mockSession(UserDB user) {
-        byte[] accessToken = new byte[32], refreshToken = new byte[32];
-        secureRandom.nextBytes(accessToken);
-        secureRandom.nextBytes(refreshToken);
-        return UserSessionDB.builder()
-                .accessToken(accessToken)
-                .accessTokenExpires(Instant.now().plusSeconds(10000))
-                .refreshToken(refreshToken)
-                .refreshTokenExpires(Instant.now().plusSeconds(10000))
-                .user(user)
-                .build();
-    }
-
     private UserSessionDB mockSessionWithExpiredAccessToken(UserDB user) {
         byte[] accessToken = new byte[32], refreshToken = new byte[32];
         secureRandom.nextBytes(accessToken);
@@ -130,7 +109,7 @@ public class AuthControllerTest {
 
     @Test
     void login_shouldAcceptValidCredentialsAndYieldSession() throws Exception {
-        UserDB mockUser = mockUser();
+        UserDB mockUser = mockUser(passwordEncoder);
         userRepository.deleteAll();
         userRepository.save(mockUser);
 
@@ -153,7 +132,7 @@ public class AuthControllerTest {
 
     @Test
     void login_shouldRejectInvalidCredentials() throws Exception {
-        UserDB mockUser = mockUser();
+        UserDB mockUser = mockUser(passwordEncoder);
         userRepository.deleteAll();
         userRepository.save(mockUser);
 
@@ -183,7 +162,7 @@ public class AuthControllerTest {
 
     @Test
     void refresh_shouldYieldNewValidSession() throws Exception {
-        UserDB user = mockUser();
+        UserDB user = mockUser(passwordEncoder);
         UserSessionDB userSession = mockSessionWithExpiredAccessToken(user);
         userRepository.deleteAll();
         userRepository.save(user);
@@ -214,7 +193,7 @@ public class AuthControllerTest {
 
     @Test
     void refresh_shouldRejectInvalidRefreshToken() throws Exception {
-        UserDB user = mockUser();
+        UserDB user = mockUser(passwordEncoder);
         UserSessionDB userSession = mockSessionWithExpiredRefreshToken(user);
         userRepository.deleteAll();
         userRepository.save(user);
