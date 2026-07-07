@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -50,8 +51,11 @@ public class AuthService {
      */
     private byte[][] yieldTokens() {
         byte[] accessToken = new byte[32], refreshToken = new byte[32];
-        secureRandom.nextBytes(accessToken);
-        secureRandom.nextBytes(refreshToken);
+        do {
+            secureRandom.nextBytes(accessToken);
+            secureRandom.nextBytes(refreshToken);
+            // worth checking even if possibility is astronomically low
+        }  while (Arrays.equals(accessToken, refreshToken));
         return new byte[][]{accessToken, refreshToken};
     }
 

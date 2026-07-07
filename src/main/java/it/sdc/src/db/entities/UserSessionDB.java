@@ -10,7 +10,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "src_sessions")
+@Table(
+        name = "src_sessions",
+        check = {@CheckConstraint(constraint = "access_token != refresh_token")}
+)
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,13 +23,13 @@ public class UserSessionDB {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "access_token", nullable = false, unique = true)
     private byte[] accessToken;
 
     @Column(nullable = false)
     private Instant accessTokenExpires;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "refresh_token", nullable = false, unique = true)
     private byte[] refreshToken;
 
     @Column(nullable = false)
