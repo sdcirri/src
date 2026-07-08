@@ -94,6 +94,6 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext ctx) {
-        return isStrong(value) && !isPwned(value);
+        return value == null || (isStrong(value) && !isPwned(value));
     }
 }
