@@ -48,6 +48,32 @@ public final class BearerAuthFixtures {
                 .build();
     }
 
+    public static UserSessionDB mockSessionWithExpiredAccessToken(UserDB user) {
+        byte[] accessToken = new byte[32], refreshToken = new byte[32];
+        SECURE_RANDOM.nextBytes(accessToken);
+        SECURE_RANDOM.nextBytes(refreshToken);
+        return UserSessionDB.builder()
+                .accessToken(accessToken)
+                .accessTokenExpires(Instant.now().minusSeconds(10000))
+                .refreshToken(refreshToken)
+                .refreshTokenExpires(Instant.now().plusSeconds(10000))
+                .user(user)
+                .build();
+    }
+
+    public static UserSessionDB mockSessionWithExpiredRefreshToken(UserDB user) {
+        byte[] accessToken = new byte[32], refreshToken = new byte[32];
+        SECURE_RANDOM.nextBytes(accessToken);
+        SECURE_RANDOM.nextBytes(refreshToken);
+        return UserSessionDB.builder()
+                .accessToken(accessToken)
+                .accessTokenExpires(Instant.now().plusSeconds(10000))
+                .refreshToken(refreshToken)
+                .refreshTokenExpires(Instant.now().minusSeconds(10000))
+                .user(user)
+                .build();
+    }
+
     private static UserPrincipal mockPrincipal(UserSessionDB session) {
         return new UserPrincipal(
                 session.getUser().getId(),

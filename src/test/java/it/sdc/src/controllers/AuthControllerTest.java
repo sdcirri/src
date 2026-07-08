@@ -33,8 +33,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Set;
 
-import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockBearerRefreshTokenHeader;
-import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockUser;
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -73,32 +72,6 @@ public class AuthControllerTest {
     SecureRandom secureRandom;
 
     private static Validator validator;
-
-    private UserSessionDB mockSessionWithExpiredAccessToken(UserDB user) {
-        byte[] accessToken = new byte[32], refreshToken = new byte[32];
-        secureRandom.nextBytes(accessToken);
-        secureRandom.nextBytes(refreshToken);
-        return UserSessionDB.builder()
-                .accessToken(accessToken)
-                .accessTokenExpires(Instant.now().minusSeconds(10000))
-                .refreshToken(refreshToken)
-                .refreshTokenExpires(Instant.now().plusSeconds(10000))
-                .user(user)
-                .build();
-    }
-
-    private UserSessionDB mockSessionWithExpiredRefreshToken(UserDB user) {
-        byte[] accessToken = new byte[32], refreshToken = new byte[32];
-        secureRandom.nextBytes(accessToken);
-        secureRandom.nextBytes(refreshToken);
-        return UserSessionDB.builder()
-                .accessToken(accessToken)
-                .accessTokenExpires(Instant.now().plusSeconds(10000))
-                .refreshToken(refreshToken)
-                .refreshTokenExpires(Instant.now().minusSeconds(10000))
-                .user(user)
-                .build();
-    }
 
     @BeforeAll
     static void setUpValidator() {
