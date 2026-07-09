@@ -13,7 +13,7 @@ public class UserCryptoMapper {
 
     public UserCryptoDto toPrivateDto(UserCryptoDB userCrypto) {
         return new UserCryptoDto(
-                userCrypto.getId(),
+                userCrypto.getUserDB().getId(),
                 encoder.encodeToString(userCrypto.getKekSalt()),
                 encoder.encodeToString(userCrypto.getPrivateEd25519()),
                 encoder.encodeToString(userCrypto.getIvEd25519()),

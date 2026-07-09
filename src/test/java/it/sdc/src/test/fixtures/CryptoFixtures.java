@@ -1,10 +1,13 @@
 package it.sdc.src.test.fixtures;
 
 import it.sdc.src.db.entities.UserCryptoDB;
+import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
+import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.springframework.security.core.parameters.P;
 
 import java.util.Base64;
 import java.util.UUID;
@@ -24,17 +27,17 @@ public final class CryptoFixtures {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
-    public static UserCryptoDB mockUserCryptoDBSpecs(UUID userId) {
-        return mockUserCryptoDBSpecs(userId, false);
+    public static UserCryptoDB mockUserCryptoDBSpecs(UserDB user) {
+        return mockUserCryptoDBSpecs(user, false);
     }
 
-    public static UserCryptoDB mockUserCryptoDBSpecs(UUID userId, boolean publicOnly) {
+    public static UserCryptoDB mockUserCryptoDBSpecs(UserDB user, boolean publicOnly) {
         UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
         when(userCryptoDB.getPublicEd25519()).thenReturn(PUBLIC_ED25519);
         when(userCryptoDB.getPublicX25519()).thenReturn(PUBLIC_X25519);
 
         if (!publicOnly) {
-            when(userCryptoDB.getId()).thenReturn(userId);
+            when(userCryptoDB.getUserDB()).thenReturn(user);
             when(userCryptoDB.getKekSalt()).thenReturn(KEK_SALT);
             when(userCryptoDB.getPrivateEd25519()).thenReturn(PRIVATE_ED25519_CRYPTO);
             when(userCryptoDB.getIvEd25519()).thenReturn(PRIVATE_ED25519_IV);
@@ -61,6 +64,18 @@ public final class CryptoFixtures {
     public static ContactCryptoDto mockPublicCryptoSpecs() {
         return new ContactCryptoDto(
                 ENCODER.encodeToString(PUBLIC_ED25519),
+                ENCODER.encodeToString(PUBLIC_X25519)
+        );
+    }
+
+    public static UserRegistrationFinalizationRequest mockFinalizationRequest() {
+        return new UserRegistrationFinalizationRequest(
+                ENCODER.encodeToString(KEK_SALT),
+                ENCODER.encodeToString(PRIVATE_ED25519_CRYPTO),
+                ENCODER.encodeToString(PRIVATE_ED25519_IV),
+                ENCODER.encodeToString(PUBLIC_ED25519),
+                ENCODER.encodeToString(PRIVATE_X25519_CRYPTO),
+                ENCODER.encodeToString(PRIVATE_X25519_IV),
                 ENCODER.encodeToString(PUBLIC_X25519)
         );
     }
