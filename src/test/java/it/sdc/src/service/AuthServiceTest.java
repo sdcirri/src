@@ -244,7 +244,7 @@ public class AuthServiceTest {
         verify(userCryptoRepository).save(captor.capture());
 
         UserCryptoDB saved = captor.getValue();
-        assertThat(saved.getId()).isEqualTo(userId);
+        assertThat(saved.getUserDB().getId()).isEqualTo(userId);
         assertThat(saved.getKekSalt()).containsExactly(1, 2, 3);
         assertThat(saved.getPrivateEd25519()).containsExactly(10, 11);
         assertThat(saved.getIvEd25519()).containsExactly(20, 21);

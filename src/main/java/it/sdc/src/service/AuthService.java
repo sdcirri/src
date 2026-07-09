@@ -151,7 +151,7 @@ public class AuthService {
 
         Base64.Decoder decoder = Base64.getDecoder();
         UserCryptoDB newUserCrypto = UserCryptoDB.builder()
-                .id(newUser.getId())
+                .userDB(newUser)
                 .kekSalt(decoder.decode(request.kekSalt()))
                 .privateEd25519(decoder.decode(request.privateEd25519Crypto()))
                 .ivEd25519(decoder.decode(request.privateEd25519IV()))
