@@ -8,9 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.UUID;
-
-import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockUser;
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockUserWithId;
 import static it.sdc.src.test.fixtures.CryptoFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,7 +29,7 @@ public class UserCryptoMapperTest {
 
     @Test
     void toPrivateDto_shouldReturnValidOwnCryptoSpecs() {
-        UserDB user = mockUser(passwordEncoder);
+        UserDB user = mockUserWithId(passwordEncoder);
         UserCryptoDB userCrypto = mockUserCryptoDBSpecs(user);
         UserCryptoDto result = userCryptoMapper.toPrivateDto(userCrypto);
         assertThat(result).isEqualTo(mockPrivateCryptoSpecs(user.getId()));
@@ -39,7 +37,7 @@ public class UserCryptoMapperTest {
 
     @Test
     void toPublicDto_shouldReturnValidContactCryptoSpecs() {
-        UserCryptoDB userCrypto = mockUserCryptoDBSpecs(mockUser(passwordEncoder), true);
+        UserCryptoDB userCrypto = mockUserCryptoDBSpecs(mockUserWithId(passwordEncoder));
         ContactCryptoDto result = userCryptoMapper.toPublicDto(userCrypto);
         assertThat(result).isEqualTo(mockPublicCryptoSpecs());
     }

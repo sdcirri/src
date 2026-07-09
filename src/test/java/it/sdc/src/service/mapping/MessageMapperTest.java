@@ -24,8 +24,7 @@ public class MessageMapperTest {
 
     @Test
     void toDto_mapsMessageCorrectly() {
-        UUID messageId = UUID.randomUUID(), chatId = UUID.randomUUID();
-        UUID user1Id = UUID.randomUUID(), user2Id = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID(), user1Id = UUID.randomUUID(), user2Id = UUID.randomUUID();
         UserDB user1DB = mock(UserDB.class);
         when(user1DB.getId()).thenReturn(user1Id);
 
