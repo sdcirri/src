@@ -7,13 +7,9 @@ import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.parameters.P;
 
 import java.util.Base64;
 import java.util.UUID;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class CryptoFixtures {
@@ -28,24 +24,16 @@ public final class CryptoFixtures {
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
     public static UserCryptoDB mockUserCryptoDBSpecs(UserDB user) {
-        return mockUserCryptoDBSpecs(user, false);
-    }
-
-    public static UserCryptoDB mockUserCryptoDBSpecs(UserDB user, boolean publicOnly) {
-        UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
-        when(userCryptoDB.getPublicEd25519()).thenReturn(PUBLIC_ED25519);
-        when(userCryptoDB.getPublicX25519()).thenReturn(PUBLIC_X25519);
-
-        if (!publicOnly) {
-            when(userCryptoDB.getUserDB()).thenReturn(user);
-            when(userCryptoDB.getKekSalt()).thenReturn(KEK_SALT);
-            when(userCryptoDB.getPrivateEd25519()).thenReturn(PRIVATE_ED25519_CRYPTO);
-            when(userCryptoDB.getIvEd25519()).thenReturn(PRIVATE_ED25519_IV);
-            when(userCryptoDB.getPrivateX25519()).thenReturn(PRIVATE_X25519_CRYPTO);
-            when(userCryptoDB.getIvX25519()).thenReturn(PRIVATE_X25519_IV);
-        }
-
-        return userCryptoDB;
+        return UserCryptoDB.builder()
+                .userDB(user)
+                .kekSalt(KEK_SALT)
+                .privateEd25519(PRIVATE_ED25519_CRYPTO)
+                .ivEd25519(PRIVATE_ED25519_IV)
+                .publicEd25519(PUBLIC_ED25519)
+                .privateX25519(PRIVATE_X25519_CRYPTO)
+                .ivX25519(PRIVATE_X25519_IV)
+                .publicX25519(PUBLIC_X25519)
+                .build();
     }
 
     public static UserCryptoDto mockPrivateCryptoSpecs(UUID userId) {

@@ -1,11 +1,15 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
+import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
+import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.LoginRequest;
+import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -32,13 +36,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
+import static it.sdc.src.test.fixtures.CryptoFixtures.mockFinalizationRequest;
+import static it.sdc.src.test.fixtures.CryptoFixtures.mockUserCryptoDBSpecs;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,20 +74,21 @@ public class AuthControllerTest {
     UserSessionDBRepository sessionRepository;
 
     @Autowired
+    UserCryptoDBRepository cryptoRepository;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     @Autowired
     ObjectMapper objectMapper;
 
-    @Autowired
-    SecureRandom secureRandom;
-
-    private static Validator validator;
+    private static final Base64.Encoder ENCODER = Base64.getEncoder();
+    private static Validator VALIDATOR;
 
     private static Stream<LoginRequest> invalidLoginRequests() {
         return Stream.of(
                 new LoginRequest("username", null),
-                new LoginRequest("a weird username", null),
+                new LoginRequest("a weird username", "P@$$w0rd!!!"),
                 new LoginRequest("username", ""),
                 new LoginRequest(null, "P@$$w0rd!!!"),
                 new LoginRequest("", "P@$$w0rd!!!"),
@@ -107,7 +114,7 @@ public class AuthControllerTest {
     @BeforeAll
     static void setUpValidator() {
         try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
-            validator = factory.getValidator();
+            VALIDATOR = factory.getValidator();
         }
     }
 
@@ -130,7 +137,7 @@ public class AuthControllerTest {
         );
 
         assertThat(resp).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = validator.validate(resp);
+        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(resp);
         assertThat(violations).isEmpty();
     }
 
@@ -195,13 +202,13 @@ public class AuthControllerTest {
         );
 
         assertThat(newSession).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = validator.validate(newSession);
+        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(newSession);
         assertThat(violations).isEmpty();
 
         assertThat(newSession.accessTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
         assertThat(newSession.refreshTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
         assertThat(newSession.refreshToken()).isNotEqualTo(
-                Base64.getEncoder().encodeToString(userSession.getRefreshToken())
+                ENCODER.encodeToString(userSession.getRefreshToken())
         );
     }
 
@@ -235,7 +242,7 @@ public class AuthControllerTest {
 
         UserSessionDto session = objectMapper.readValue(result.getResponse().getContentAsString(), UserSessionDto.class);
         assertThat(session).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = validator.validate(session);
+        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(session);
         assertThat(violations).isEmpty();
     }
 
@@ -293,17 +300,72 @@ public class AuthControllerTest {
 
     @Test
     void finalizeRegistration_shouldFinalizeUserRegistration() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = mockSession(user);
+        sessionRepository.save(session);
+
+        UserRegistrationFinalizationRequest request = mockFinalizationRequest();
+
+        MvcResult result = mockMvc.perform(
+                post("/auth/register/finalize")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isOk()).andReturn();
+
+        Optional<UserCryptoDB> userCrypto = cryptoRepository.findById(user.getId());
+        assertThat(userCrypto).isPresent();
+        UserCryptoDB userCryptoDB = userCrypto.get();
+
+        assertThat(ENCODER.encodeToString(userCryptoDB.getKekSalt())).isEqualTo(request.kekSalt());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPrivateEd25519())).isEqualTo(request.privateEd25519Crypto());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getIvEd25519())).isEqualTo(request.privateEd25519IV());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPublicEd25519())).isEqualTo(request.publicEd25519());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPrivateX25519())).isEqualTo(request.privateX25519Crypto());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getIvX25519())).isEqualTo(request.privateX25519IV());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPublicX25519())).isEqualTo(request.publicX25519());
+
+        UserCryptoDto cryptoDto = objectMapper.readValue(result.getResponse().getContentAsString(), UserCryptoDto.class);
+        assertThat(cryptoDto).isNotNull();
+        assertThat(cryptoDto.id()).isEqualTo(user.getId());
+        assertThat(cryptoDto.kekSalt()).isEqualTo(request.kekSalt());
+        assertThat(cryptoDto.privateEd25519Crypto()).isEqualTo(request.privateEd25519Crypto());
+        assertThat(cryptoDto.privateEd25519IV()).isEqualTo(request.privateEd25519IV());
+        assertThat(cryptoDto.publicEd25519()).isEqualTo(request.publicEd25519());
+        assertThat(cryptoDto.privateX25519Crypto()).isEqualTo(request.privateX25519Crypto());
+        assertThat(cryptoDto.privateX25519IV()).isEqualTo(request.privateX25519IV());
+        assertThat(cryptoDto.publicX25519()).isEqualTo(request.publicX25519());
     }
 
     @Test
     void finalizeRegistration_shouldRejectUnauthenticatedCalls() throws Exception {
-
+        mockMvc.perform(
+                post("/auth/register/finalize")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
+        ).andExpect(status().isUnauthorized());
     }
 
     @Test
     void finalizeRegistration_shouldRejectFullyRegisteredUsers() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        cryptoRepository.save(mockUserCryptoDBSpecs(user));
+
+        mockMvc.perform(
+                post("/auth/register/finalize")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
+        ).andExpect(status().isConflict());
     }
 
     @Test
