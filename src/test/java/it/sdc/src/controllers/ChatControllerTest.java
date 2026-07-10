@@ -1,16 +1,44 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.db.entities.ChatDB;
+import it.sdc.src.db.entities.MessageDB;
+import it.sdc.src.db.entities.UserDB;
+import it.sdc.src.db.entities.UserSessionDB;
+import it.sdc.src.db.repositories.ChatDBRepository;
+import it.sdc.src.db.repositories.MessageDBRepository;
+import it.sdc.src.db.repositories.UserDBRepository;
+import it.sdc.src.db.repositories.UserSessionDBRepository;
+import it.sdc.src.dto.ChatDto;
+import it.sdc.src.dto.MessageDto;
+import it.sdc.src.service.mapping.MessageMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -30,29 +58,163 @@ public class ChatControllerTest {
     @Autowired
     MockMvc mockMvc;
 
+    @Autowired
+    UserDBRepository userRepository;
+
+    @Autowired
+    UserSessionDBRepository sessionRepository;
+
+    @Autowired
+    ChatDBRepository chatRepository;
+
+    @Autowired
+    MessageDBRepository messageRepository;
+
+    @Autowired
+    PasswordEncoder passwordEncoder;
+
+    @Autowired
+    SecureRandom secureRandom;
+
+    @Autowired
+    ObjectMapper objectMapper;
+
+    @Autowired
+    MessageMapper messageMapper;
+
+    private UserDB mockUser(int seq) {
+        return UserDB.builder()
+                .username("user"+seq)
+                .displayName("User "+seq)
+                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
+                .registrationTimeUTC(Instant.now())
+                .build();
+    }
+
+    private List<MessageDB> mockMessageHistory(ChatDB chat, int len) {
+        List<MessageDB> messages = new ArrayList<>();
+        for (int i = 0; i < len; i++) {
+            byte[] iv = new byte[16], data = new byte[128];
+            secureRandom.nextBytes(iv);
+            secureRandom.nextBytes(data);
+
+            messages.add(messageRepository.save(
+                    MessageDB.builder()
+                            .iv(iv)
+                            .data(data)
+                            .sender(secureRandom.nextBoolean() ? chat.getUser1() : chat.getUser2())
+                            .timestamp(Instant.now())
+                            .chat(chat)
+                            .build()
+            ));
+        }
+
+        return messages;
+    }
+
+    private static ChatDB mockChat(UserDB user1, UserDB user2) {
+        // Ensures user order (`.toString()` enforces SQL ordering)
+        return ChatDB.builder()
+                .user1(user1.getId().toString().compareTo(user2.getId().toString()) < 0 ? user1 : user2)
+                .user2(user1.getId().toString().compareTo(user2.getId().toString()) < 0 ? user2 : user1)
+                .build();
+    }
+
     @Test
     void getMyChats_shouldListCurrentUserChats() throws Exception {
+        messageRepository.deleteAll();
+        chatRepository.deleteAll();
+        sessionRepository.deleteAll();
+        userRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(1));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        List<ChatDto> expectedChats = new ArrayList<>();
+
+        for (int i = 2; i < 12; i++) {
+            UserDB contact = userRepository.save(mockUser(i));
+            ChatDB chat = chatRepository.save(mockChat(user, contact));
+            MessageDB message = mockMessageHistory(chat, 1).getFirst();
+            chat = chatRepository.findById(chat.getId()).orElseThrow();
+            expectedChats.add(new ChatDto(
+                    chat.getId(),
+                    contact.getId(),
+                    messageMapper.toDto(message, user.getId())
+            ));
+        }
+
+        MvcResult result = mockMvc.perform(
+                get("/chats")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+
+        List<ChatDto> userChats = objectMapper.readValue(
+                result.getResponse().getContentAsString(),
+                new TypeReference<>() {}
+        );
+
+        // userChats is ordered by last message timestamp desc, expectedChats is obviously reversed
+        assertThat(userChats).isEqualTo(expectedChats.reversed());
     }
 
     @Test
     void getMyChats_requiresAuth() throws Exception {
-
+        mockMvc.perform(
+                get("/chats").accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isUnauthorized());
     }
 
     @Test
     void getMessageHistory_shouldReturnChatHistory() throws Exception {
+        messageRepository.deleteAll();
+        chatRepository.deleteAll();
+        sessionRepository.deleteAll();
+        userRepository.deleteAll();
 
+        UserDB user1 = userRepository.save(mockUser(1)), user2 = userRepository.save(mockUser(2));
+        UserSessionDB session = sessionRepository.save(mockSession(user1));
+        ChatDB chat = chatRepository.save(mockChat(user1, user2));
+        List<MessageDto> expected = mockMessageHistory(chat, 10).stream()
+                .map(msg -> messageMapper.toDto(msg, user1.getId()))
+                .toList();
+
+        MvcResult result = mockMvc.perform(
+                get("/chats/" + user2.getId())
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+
+        List<MessageDto> history = objectMapper.readValue(
+                result.getResponse().getContentAsString(),
+                new TypeReference<>() {}
+        );
+
+        assertThat(history).isEqualTo(expected);
     }
 
     @Test
     void getMessageHistory_requiresAuth() throws Exception {
-
+        mockMvc.perform(
+                get("/chats/" + UUID.randomUUID()).accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isUnauthorized());
     }
 
     @Test
     void getMessageHistory_shouldErrorOnNonexistentChat() throws Exception {
+        messageRepository.deleteAll();
+        chatRepository.deleteAll();
+        sessionRepository.deleteAll();
+        userRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(1));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                get("/chats/" + UUID.randomUUID())
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isNotFound());
     }
 
     @Test
@@ -71,7 +233,7 @@ public class ChatControllerTest {
     }
 
     @Test
-    void getMessageHistory_shouldRejectInvalidMessageBodies() throws Exception {
+    void sendMessage_shouldRejectInvalidMessageBodies() throws Exception {
 
     }
 }

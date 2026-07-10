@@ -39,8 +39,9 @@ public class ChatService {
      * @param myUserId current user ID
      * @return the list of user chats
      */
+    @Transactional(readOnly = true)
     public List<ChatDto> getChats(UUID myUserId) {
-        return chatRepository.findByUserId(myUserId).stream()
+        return chatRepository.findByUserIdWithMessages(myUserId).stream()
                 .map(chat -> chatMapper.toDto(chat, myUserId))
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()
