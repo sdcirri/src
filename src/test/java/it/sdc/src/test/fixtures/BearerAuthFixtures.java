@@ -4,8 +4,6 @@ import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.server.resource.authentication.BearerTokenAuthentication;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -15,12 +13,13 @@ import java.util.UUID;
 public final class BearerAuthFixtures {
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    public static final String USER_PASSWORD = "m#f$$#rdw89X&%jyD5b*mkf^";
 
     public static UserDB mockUser(PasswordEncoder passwordEncoder) {
         return UserDB.builder()
                 .username("username")
                 .displayName("displayName")
-                .passwordHash(passwordEncoder.encode("P@$$w0rd!!!"))
+                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
                 .registrationTimeUTC(Instant.now())
                 .build();
     }
@@ -30,7 +29,7 @@ public final class BearerAuthFixtures {
                 .id(UUID.randomUUID())
                 .username("username")
                 .displayName("displayName")
-                .passwordHash(passwordEncoder.encode("P@$$w0rd!!!"))
+                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
                 .registrationTimeUTC(Instant.now())
                 .build();
     }
@@ -81,32 +80,6 @@ public final class BearerAuthFixtures {
                 session.getAccessTokenExpires(),
                 session.getRefreshToken(),
                 session.getRefreshTokenExpires()
-        );
-    }
-
-    public static BearerTokenAuthentication mockBearerTokenAuthentication(UserSessionDB session) {
-        return new BearerTokenAuthentication(
-                mockPrincipal(session),
-                new OAuth2AccessToken(
-                        OAuth2AccessToken.TokenType.BEARER,
-                        ENCODER.encodeToString(session.getAccessToken()),
-                        session.getAccessTokenExpires().minusSeconds(1),
-                        session.getAccessTokenExpires()
-                ),
-                null
-        );
-    }
-
-    public static BearerTokenAuthentication mockBearerRefreshTokenAuthentication(UserSessionDB session) {
-        return new BearerTokenAuthentication(
-                mockPrincipal(session),
-                new OAuth2AccessToken(
-                        OAuth2AccessToken.TokenType.BEARER,
-                        ENCODER.encodeToString(session.getRefreshToken()),
-                        session.getRefreshTokenExpires().minusSeconds(1),
-                        session.getRefreshTokenExpires()
-                ),
-                null
         );
     }
 

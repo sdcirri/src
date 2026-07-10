@@ -11,6 +11,8 @@ import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.LoginRequest;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
+import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
+import it.sdc.src.service.mapping.UserSessionMapper;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -82,17 +84,31 @@ public class AuthControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    @Autowired
+    private UserSessionMapper userSessionMapper;
+
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
     private static Validator VALIDATOR;
+
+    private static PasswordChangeRequest mockPasswordChangeRequest(String newPassword) {
+        return new PasswordChangeRequest(
+                newPassword,
+                ENCODER.encodeToString(new byte[] {2}),
+                ENCODER.encodeToString(new byte[] {3, 4, 5}),
+                ENCODER.encodeToString(new byte[] {8, 9}),
+                ENCODER.encodeToString(new byte[] {10, 11, 12}),
+                ENCODER.encodeToString(new byte[] {13, 14})
+        );
+    }
 
     private static Stream<LoginRequest> invalidLoginRequests() {
         return Stream.of(
                 new LoginRequest("username", null),
-                new LoginRequest("a weird username", "P@$$w0rd!!!"),
+                new LoginRequest("a weird username", USER_PASSWORD),
                 new LoginRequest("username", ""),
-                new LoginRequest(null, "P@$$w0rd!!!"),
-                new LoginRequest("", "P@$$w0rd!!!"),
-                new LoginRequest("xx", "P@$$w0rd!!!"),
+                new LoginRequest(null, USER_PASSWORD),
+                new LoginRequest("", USER_PASSWORD),
+                new LoginRequest("xx", USER_PASSWORD),
                 new LoginRequest("username", "short"),
                 new LoginRequest("", ""),
                 new LoginRequest(null, null)
@@ -105,10 +121,14 @@ public class AuthControllerTest {
                 new UserRegistrationRequest("", null, ""),
                 new UserRegistrationRequest("username", null, null),
                 new UserRegistrationRequest("username", null, ""),
-                new UserRegistrationRequest(null, null, "P@$$w0rd!!!"),
-                new UserRegistrationRequest("", null, "P@$$w0rd!!!"),
-                new UserRegistrationRequest("a weird username", null, "P@$$w0rd!!!")
+                new UserRegistrationRequest(null, null, USER_PASSWORD),
+                new UserRegistrationRequest("", null, USER_PASSWORD),
+                new UserRegistrationRequest("a weird username", null, USER_PASSWORD)
         );
+    }
+
+    private static Stream<PasswordChangeRequest> invalidPasswordChangeRequests() {
+        return Stream.of(mockPasswordChangeRequest(""), mockPasswordChangeRequest(null));
     }
 
     @BeforeAll
@@ -124,7 +144,7 @@ public class AuthControllerTest {
         userRepository.deleteAll();
         userRepository.save(mockUser);
 
-        LoginRequest req = new LoginRequest("username", "P@$$w0rd!!!");
+        LoginRequest req = new LoginRequest("username", USER_PASSWORD);
         MvcResult result = mockMvc.perform(
                 post("/auth/login")
                     .contentType(String.valueOf(MediaType.APPLICATION_JSON))
@@ -168,7 +188,7 @@ public class AuthControllerTest {
     @Test
     void login_validationShouldBlockNullCredentials() throws Exception {
         LoginRequest nullPassword = new LoginRequest("username", null);
-        LoginRequest nullUsername = new LoginRequest(null, "P@$$w0rd!!!");
+        LoginRequest nullUsername = new LoginRequest(null, USER_PASSWORD);
         mockMvc.perform(
                 post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -232,7 +252,7 @@ public class AuthControllerTest {
     void register_shouldPreRegisterUserOnGoodRequest() throws Exception {
         sessionRepository.deleteAll();
         userRepository.deleteAll();
-        UserRegistrationRequest request = new UserRegistrationRequest("username", null, "G1J0H!X4uTa6%ZJF");
+        UserRegistrationRequest request = new UserRegistrationRequest("username", null, USER_PASSWORD);
 
         MvcResult result = mockMvc.perform(
                 post("/auth/register")
@@ -266,7 +286,7 @@ public class AuthControllerTest {
         UserRegistrationRequest request = new UserRegistrationRequest(
                 existingUser.getUsername(),
                 null,
-                "G1J0H!X4uTa6%ZJF"
+                USER_PASSWORD
         );
 
         mockMvc.perform(
@@ -369,22 +389,103 @@ public class AuthControllerTest {
     }
 
     @Test
-    void changePassword_shouldChangeUserPassword() throws Exception {
+    void changePassword_shouldChangeUserPasswordAndEvictOldSessions() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+
+        for (int i = 0; i < 10; i++)
+            sessionRepository.save(mockSession(user));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        UserSessionDto oldSessionDto = userSessionMapper.toDto(session);
+
+        cryptoRepository.save(mockUserCryptoDBSpecs(user));
+
+        assertThat(sessionRepository.findAllByUser_Id(user.getId()).size()).isEqualTo(11);
+        assertThat(passwordEncoder.matches(USER_PASSWORD, user.getPasswordHash())).isTrue();
+
+        String newPassword = "P@$$w0rd.123!!!";
+        PasswordChangeRequest request = mockPasswordChangeRequest(newPassword);
+        MvcResult result = mockMvc.perform(
+                post("/auth/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isOk()).andReturn();
+
+        UserSessionDto newSession = objectMapper.readValue(result.getResponse().getContentAsString(), UserSessionDto.class);
+        assertThat(newSession).isNotNull();
+        assertThat(newSession).isNotEqualTo(oldSessionDto);
+        assertThat(sessionRepository.findAllByUser_Id(user.getId()).size()).isEqualTo(1);
+
+        // Also check whether crypto was updated successfully
+        Optional<UserCryptoDB> userCryptoDBOptional = cryptoRepository.findById(user.getId());
+        assertThat(userCryptoDBOptional).isPresent();
+        UserCryptoDB userCryptoDB = userCryptoDBOptional.get();
+
+        assertThat(ENCODER.encodeToString(userCryptoDB.getKekSalt())).isEqualTo(request.newKekSalt());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPrivateEd25519())).isEqualTo(request.newPrivateEd25519());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getIvEd25519())).isEqualTo(request.newIvEd25519());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getPrivateX25519())).isEqualTo(request.newPrivateX25519());
+        assertThat(ENCODER.encodeToString(userCryptoDB.getIvX25519())).isEqualTo(request.newIvX25519());
     }
 
     @Test
     void changePassword_shouldRejectOldPassword() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        assertThat(passwordEncoder.matches(USER_PASSWORD, user.getPasswordHash())).isTrue();
+        mockMvc.perform(
+                post("/auth/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(USER_PASSWORD)))
+        ).andExpect(status().isConflict());
     }
 
-    @Test
-    void changePassword_shouldRejectNullOrBlankPassword() throws Exception {
+    @ParameterizedTest
+    @MethodSource("invalidPasswordChangeRequests")
+    void changePassword_shouldRejectNullOrBlankPassword(PasswordChangeRequest badRequest) throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/auth/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(badRequest))
+        ).andExpect(status().isBadRequest());
     }
 
-    @Test
-    void changePassword_shouldRejectWeakOrPwnedPassword() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "longbuttoosimple1!",       // no upper
+            "LONGBUTTOOSIMPLE1!",       // no lower
+            "LongButTooSimple1",        // no special
+            "LongButTooSimple!",        // no number
+            "Password1!"                // strong but pwned
+    })
+    void changePassword_shouldRejectWeakOrPwnedPassword(String badPassword) throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
 
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/auth/me/password")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(badPassword)))
+        ).andExpect(status().isBadRequest());
     }
 }
