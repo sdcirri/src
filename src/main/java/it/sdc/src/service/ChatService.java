@@ -95,8 +95,8 @@ public class ChatService {
      * @return the messaging history between the two users
      */
     public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId) {
-        UUID user1Id = myUserId.compareTo(contactUserId) < 0 ? myUserId : contactUserId;
-        UUID user2Id = myUserId.equals(user1Id) ? contactUserId : myUserId;
+        UUID user1Id = myUserId.toString().compareTo(contactUserId.toString()) < 0 ? myUserId : contactUserId;
+        UUID user2Id = myUserId.toString().equals(user1Id.toString()) ? contactUserId : myUserId;
         ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
                 () -> new ChatNotFoundException("Chat not found")
         );
