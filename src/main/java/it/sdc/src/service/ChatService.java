@@ -61,7 +61,9 @@ public class ChatService {
         if (myUserId.equals(contactId))
             throw new SelfChatException("You can't start new chat with yourself");
 
-        UUID user1Id = myUserId.compareTo(contactId) < 0 ? myUserId : contactId;
+        // Postgres ordering is different from UUID.compareTo(...)
+        UUID user1Id = myUserId.toString().compareTo(contactId.toString()) < 0 ? myUserId : contactId;
+
         UUID user2Id = myUserId.equals(user1Id) ? contactId : myUserId;
         UserDB user1 = userRepository.findById(user1Id).orElseThrow(
                 () -> new UserNotFoundException("User not found")
