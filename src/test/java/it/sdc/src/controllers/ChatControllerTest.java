@@ -10,8 +10,11 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
+import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.mapping.MessageMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -31,13 +34,13 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Stream;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("test")
@@ -54,6 +57,8 @@ public class ChatControllerTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
     }
+
+    private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
     @Autowired
     MockMvc mockMvc;
@@ -120,12 +125,38 @@ public class ChatControllerTest {
                 .build();
     }
 
-    @Test
-    void getMyChats_shouldListCurrentUserChats() throws Exception {
+    private static MessageRequest mockMessageRequest() {
+        byte[] iv = new byte[12];
+        Arrays.fill(iv, (byte) 1);
+
+        return new MessageRequest(
+                ENCODER.encodeToString(iv),
+                ENCODER.encodeToString("Hello there!".getBytes())
+        );
+    }
+
+    static Stream<MessageRequest> badMessageRequests() {
+        String goodIV = ENCODER.encodeToString(new byte[] {1, 2}), goodData = ENCODER.encodeToString(new byte[] {3, 4, 5, 6, 7, 8});
+        return Stream.of(
+                new MessageRequest(goodData, null),
+                new MessageRequest(goodData, ""),
+                new MessageRequest(goodData, "definitely not Base64"),
+                new MessageRequest(null, goodIV),
+                new MessageRequest("", goodIV),
+                new MessageRequest("definitely not Base64", goodIV)
+        );
+    }
+
+    private void cleanupDb() {
         messageRepository.deleteAll();
         chatRepository.deleteAll();
         sessionRepository.deleteAll();
         userRepository.deleteAll();
+    }
+
+    @Test
+    void getMyChats_shouldListCurrentUserChats() throws Exception {
+        cleanupDb();
 
         UserDB user = userRepository.save(mockUser(1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
@@ -167,10 +198,7 @@ public class ChatControllerTest {
 
     @Test
     void getMessageHistory_shouldReturnChatHistory() throws Exception {
-        messageRepository.deleteAll();
-        chatRepository.deleteAll();
-        sessionRepository.deleteAll();
-        userRepository.deleteAll();
+        cleanupDb();
 
         UserDB user1 = userRepository.save(mockUser(1)), user2 = userRepository.save(mockUser(2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
@@ -202,10 +230,7 @@ public class ChatControllerTest {
 
     @Test
     void getMessageHistory_shouldErrorOnNonexistentChat() throws Exception {
-        messageRepository.deleteAll();
-        chatRepository.deleteAll();
-        sessionRepository.deleteAll();
-        userRepository.deleteAll();
+        cleanupDb();
 
         UserDB user = userRepository.save(mockUser(1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
@@ -219,21 +244,87 @@ public class ChatControllerTest {
 
     @Test
     void sendMessage_shouldSendMessage() throws Exception {
+        cleanupDb();
 
+        UserDB user = userRepository.save(mockUser(1)), contact = userRepository.save(mockUser(2));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        ChatDB chat = chatRepository.save(mockChat(user, contact));
+        mockMessageHistory(chat, 1);
+
+        MessageRequest request = mockMessageRequest();
+
+        MvcResult result = mockMvc.perform(
+                post("/chats/" + contact.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated()).andReturn();
+
+        MessageDto sent = objectMapper.readValue(result.getResponse().getContentAsString(), MessageDto.class);
+        assertThat(sent.iv()).isEqualTo(request.messageIV());
+        assertThat(sent.data()).isEqualTo(request.messageData());
+        assertThat(sent.direction()).isEqualTo(MessageDto.MessageDirection.OUTGOING);
+    }
+
+    @Test
+    void sendMessage_shouldCreateChatIfNotExists() throws Exception {
+        cleanupDb();
+
+        UserDB user = userRepository.save(mockUser(1)), contact = userRepository.save(mockUser(2));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        MessageRequest request = mockMessageRequest();
+
+        mockMvc.perform(
+                post("/chats/" + contact.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated());
+
+        List<ChatDB> chats = chatRepository.findByUserIdWithMessages(user.getId());
+        assertThat(chats).hasSize(1);
+        ChatDB chat = chats.getFirst();
+        assertThat(chat.getMessages()).hasSize(1);
     }
 
     @Test
     void sendMessage_requiresAuth() throws Exception {
-
+        mockMvc.perform(
+                post("/chat/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockMessageRequest()))
+        ).andExpect(status().isUnauthorized());
     }
 
     @Test
     void sendMessage_shouldErrorOnNonexistentUser() throws Exception {
+        cleanupDb();
 
+        UserDB user = userRepository.save(mockUser(1));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/chats/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .content(objectMapper.writeValueAsString(mockMessageRequest()))
+        ).andExpect(status().isNotFound());
     }
 
-    @Test
-    void sendMessage_shouldRejectInvalidMessageBodies() throws Exception {
+    @ParameterizedTest
+    @MethodSource("badMessageRequests")
+    void sendMessage_shouldRejectInvalidMessageBodies(MessageRequest badRequest) throws Exception {
+        cleanupDb();
 
+        UserDB user = userRepository.save(mockUser(1));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/chats/" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .content(objectMapper.writeValueAsString(badRequest))
+        ).andExpect(status().isBadRequest());
     }
 }
