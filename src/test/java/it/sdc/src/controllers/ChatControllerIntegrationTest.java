@@ -138,6 +138,7 @@ public class ChatControllerIntegrationTest {
     static Stream<MessageRequest> badMessageRequests() {
         String goodIV = ENCODER.encodeToString(new byte[] {1, 2}), goodData = ENCODER.encodeToString(new byte[] {3, 4, 5, 6, 7, 8});
         return Stream.of(
+                null,
                 new MessageRequest(goodData, null),
                 new MessageRequest(goodData, ""),
                 new MessageRequest(goodData, "definitely not Base64"),
