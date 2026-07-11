@@ -55,7 +55,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @AutoConfigureMockMvc
-public class AuthControllerTest {
+public class AuthControllerIntegrationTest {
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.1");
 
