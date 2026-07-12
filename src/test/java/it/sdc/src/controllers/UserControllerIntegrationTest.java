@@ -5,6 +5,7 @@ import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.UserDto;
+import it.sdc.src.dto.requests.accountedits.DisplayNameChangeRequest;
 import it.sdc.src.service.mapping.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -35,6 +37,7 @@ import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockSession;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("test")
@@ -295,5 +298,81 @@ public class UserControllerIntegrationTest {
                 get("/users/" + badId)
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
         ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void setDisplayName_shouldChangeOwnDisplayName() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        DisplayNameChangeRequest request = new DisplayNameChangeRequest("Cool display name");
+        UserDto expected = new UserDto(
+                myUser.getId(),
+                myUser.getUsername(),
+                request.displayName(),
+                null
+        );
+
+        MvcResult result = mockMvc.perform(
+                put("/users/me/display_name")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isOk()).andReturn();
+
+        UserDto newInfo = objectMapper.readValue(result.getResponse().getContentAsString(), UserDto.class);
+        assertThat(newInfo).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 256, 1024})
+    void setDisplayName_shouldRejectUsernameWithBadLength(int length) throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        DisplayNameChangeRequest request = new DisplayNameChangeRequest("A".repeat(length));
+
+        mockMvc.perform(
+                put("/users/me/display_name")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = { 1, 255 })
+    void setDisplayName_displayNameBoundaryIsInclusive(int length) throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        String displayName = "A".repeat(length);
+        DisplayNameChangeRequest request = new DisplayNameChangeRequest(displayName);
+
+        MvcResult result = mockMvc.perform(
+                put("/users/me/display_name")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isOk()).andReturn();
+
+        UserDto newInfo = objectMapper.readValue(result.getResponse().getContentAsString(), UserDto.class);
+        assertThat(newInfo.displayName()).isEqualTo(request.displayName());
+    }
+
+    @Test
+    void setDisplayName_requiresAuth() throws Exception {
+        mockMvc.perform(
+                get("/users/me/display_name")
+        ).andExpect(status().isUnauthorized());
     }
 }
