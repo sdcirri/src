@@ -12,6 +12,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import static it.sdc.src.test.fixtures.GraphicsFixtures.createPngImage;
+import static it.sdc.src.test.fixtures.GraphicsFixtures.createTransparentPngImage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -79,11 +81,9 @@ class ProPicNormalizerTest {
     }
 
     @Test
-    void normalizeImage_shouldScaleDown_whenImageIsLargerThanConfiguredResolution()
-            throws IOException {
+    void normalizeImage_shouldScaleDown_whenImageIsLargerThanConfiguredResolution() throws IOException {
 
         byte[] input = createPngImage(512, 512, Color.YELLOW);
-
         byte[] output = normalizer.normalizeImage(input);
 
         BufferedImage result = ImageIO.read(new ByteArrayInputStream(output));
@@ -107,34 +107,6 @@ class ProPicNormalizerTest {
                 BufferedImage.TYPE_3BYTE_BGR
         );
         assertThat(result.getColorModel().hasAlpha()).isFalse();
-    }
-
-    private byte[] createPngImage(int width, int height, Color color) throws IOException {
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-
-        Graphics2D g = image.createGraphics();
-        g.setColor(color);
-        g.fillRect(0, 0, width, height);
-        g.dispose();
-
-        return toBytes(image, "png");
-    }
-
-    private byte[] createTransparentPngImage(int width, int height) throws IOException {
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-        Graphics2D g = image.createGraphics();
-        g.setComposite(AlphaComposite.Clear);
-        g.fillRect(0, 0, width, height);
-        g.dispose();
-
-        return toBytes(image, "png");
-    }
-
-    private byte[] toBytes(BufferedImage image, String format) throws IOException {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, format, outputStream);
-        return outputStream.toByteArray();
     }
 }
 
