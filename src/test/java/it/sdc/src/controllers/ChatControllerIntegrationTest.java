@@ -34,6 +34,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -100,7 +101,7 @@ public class ChatControllerIntegrationTest {
                             .iv(iv)
                             .data(data)
                             .sender(secureRandom.nextBoolean() ? chat.getUser1() : chat.getUser2())
-                            .timestamp(Instant.now())
+                            .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
                             .chat(chat)
                             .build()
             ));
