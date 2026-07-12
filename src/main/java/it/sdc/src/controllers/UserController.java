@@ -36,7 +36,7 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public UserDto getUserInfo(@PathVariable UUID userId) {
+    public UserDto getUserInfo(@PathVariable @NotNull UUID userId) {
         return userService.getUserInfo(userId);
     }
 
