@@ -38,6 +38,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
+import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -86,15 +87,6 @@ public class ChatControllerIntegrationTest {
 
     @Autowired
     MessageMapper messageMapper;
-
-    private UserDB mockUser(int seq) {
-        return UserDB.builder()
-                .username("user"+seq)
-                .displayName("User "+seq)
-                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
-                .registrationTimeUTC(Instant.now())
-                .build();
-    }
 
     private List<MessageDB> mockMessageHistory(ChatDB chat, int len) {
         List<MessageDB> messages = new ArrayList<>();
@@ -159,12 +151,12 @@ public class ChatControllerIntegrationTest {
     void getMyChats_shouldListCurrentUserChats() throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         List<ChatDto> expectedChats = new ArrayList<>();
 
         for (int i = 2; i < 12; i++) {
-            UserDB contact = userRepository.save(mockUser(i));
+            UserDB contact = userRepository.save(mockUser(passwordEncoder, i));
             ChatDB chat = chatRepository.save(mockChat(user, contact));
             MessageDB message = mockMessageHistory(chat, 1).getFirst();
             chat = chatRepository.findById(chat.getId()).orElseThrow();
@@ -201,7 +193,8 @@ public class ChatControllerIntegrationTest {
     void getMessageHistory_shouldReturnChatHistory() throws Exception {
         cleanupDb();
 
-        UserDB user1 = userRepository.save(mockUser(1)), user2 = userRepository.save(mockUser(2));
+        UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
         ChatDB chat = chatRepository.save(mockChat(user1, user2));
         List<MessageDto> expected = mockMessageHistory(chat, 10).stream()
@@ -233,7 +226,7 @@ public class ChatControllerIntegrationTest {
     void getMessageHistory_shouldErrorOnNonexistentChat() throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(
@@ -247,7 +240,8 @@ public class ChatControllerIntegrationTest {
     void sendMessage_shouldSendMessage() throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1)), contact = userRepository.save(mockUser(2));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         ChatDB chat = chatRepository.save(mockChat(user, contact));
         mockMessageHistory(chat, 1);
@@ -271,7 +265,8 @@ public class ChatControllerIntegrationTest {
     void sendMessage_shouldCreateChatIfNotExists() throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1)), contact = userRepository.save(mockUser(2));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         MessageRequest request = mockMessageRequest();
@@ -302,7 +297,7 @@ public class ChatControllerIntegrationTest {
     void sendMessage_shouldErrorOnNonexistentUser() throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(
@@ -318,7 +313,7 @@ public class ChatControllerIntegrationTest {
     void sendMessage_shouldRejectInvalidMessageBodies(MessageRequest badRequest) throws Exception {
         cleanupDb();
 
-        UserDB user = userRepository.save(mockUser(1));
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(

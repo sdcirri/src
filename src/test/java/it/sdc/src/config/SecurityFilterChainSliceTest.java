@@ -9,7 +9,6 @@ import it.sdc.src.dto.requests.LoginRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
-import it.sdc.src.test.fixtures.BearerAuthFixtures;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,6 +22,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.UUID;
 
+import static it.sdc.src.test.fixtures.UserFixtures.USER_PASSWORD;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -75,7 +75,7 @@ public class SecurityFilterChainSliceTest {
         mockMvc.perform(
                 post("/auth/login")
                         .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginRequest("user", BearerAuthFixtures.USER_PASSWORD)))
+                        .content(objectMapper.writeValueAsString(new LoginRequest("user", USER_PASSWORD)))
         ).andExpect(status().is2xxSuccessful());
     }
 
@@ -116,7 +116,7 @@ public class SecurityFilterChainSliceTest {
                 post("/auth/register")
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new UserRegistrationRequest("user", null, BearerAuthFixtures.USER_PASSWORD)
+                                new UserRegistrationRequest("user", null, USER_PASSWORD)
                         ))
         ).andExpect(status().is2xxSuccessful());
     }

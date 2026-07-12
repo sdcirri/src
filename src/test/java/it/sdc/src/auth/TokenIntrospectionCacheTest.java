@@ -7,11 +7,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Optional;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
+import static it.sdc.src.test.fixtures.UserFixtures.mockUserWithId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;

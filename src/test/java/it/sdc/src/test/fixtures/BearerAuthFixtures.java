@@ -3,36 +3,14 @@ package it.sdc.src.test.fixtures;
 import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.UUID;
 
 public final class BearerAuthFixtures {
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    public static final String USER_PASSWORD = "m#f$$#rdw89X&%jyD5b*mkf^";
-
-    public static UserDB mockUser(PasswordEncoder passwordEncoder) {
-        return UserDB.builder()
-                .username("username")
-                .displayName("displayName")
-                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
-                .registrationTimeUTC(Instant.now())
-                .build();
-    }
-
-    public static UserDB mockUserWithId(PasswordEncoder passwordEncoder) {
-        return UserDB.builder()
-                .id(UUID.randomUUID())
-                .username("username")
-                .displayName("displayName")
-                .passwordHash(passwordEncoder.encode(USER_PASSWORD))
-                .registrationTimeUTC(Instant.now())
-                .build();
-    }
 
     public static UserSessionDB mockSession(UserDB user) {
         byte[] accessToken = new byte[32], refreshToken = new byte[32];

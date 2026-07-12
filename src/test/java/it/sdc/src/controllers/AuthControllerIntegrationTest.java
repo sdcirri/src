@@ -47,6 +47,8 @@ import java.util.stream.Stream;
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static it.sdc.src.test.fixtures.CryptoFixtures.mockFinalizationRequest;
 import static it.sdc.src.test.fixtures.CryptoFixtures.mockUserCryptoDBSpecs;
+import static it.sdc.src.test.fixtures.UserFixtures.USER_PASSWORD;
+import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -144,7 +146,7 @@ public class AuthControllerIntegrationTest {
         userRepository.deleteAll();
         userRepository.save(mockUser);
 
-        LoginRequest req = new LoginRequest("username", USER_PASSWORD);
+        LoginRequest req = new LoginRequest("user1", USER_PASSWORD);
         MvcResult result = mockMvc.perform(
                 post("/auth/login")
                     .contentType(String.valueOf(MediaType.APPLICATION_JSON))
@@ -177,7 +179,7 @@ public class AuthControllerIntegrationTest {
         userRepository.deleteAll();
         userRepository.save(mockUser);
 
-        LoginRequest req = new LoginRequest("username", "12345678");
+        LoginRequest req = new LoginRequest("user1", "12345678");
         mockMvc.perform(
                 post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -187,7 +189,7 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void login_validationShouldBlockNullCredentials() throws Exception {
-        LoginRequest nullPassword = new LoginRequest("username", null);
+        LoginRequest nullPassword = new LoginRequest("user1", null);
         LoginRequest nullUsername = new LoginRequest(null, USER_PASSWORD);
         mockMvc.perform(
                 post("/auth/login")
@@ -252,7 +254,7 @@ public class AuthControllerIntegrationTest {
     void register_shouldPreRegisterUserOnGoodRequest() throws Exception {
         sessionRepository.deleteAll();
         userRepository.deleteAll();
-        UserRegistrationRequest request = new UserRegistrationRequest("username", null, USER_PASSWORD);
+        UserRegistrationRequest request = new UserRegistrationRequest("user1", null, USER_PASSWORD);
 
         MvcResult result = mockMvc.perform(
                 post("/auth/register")
@@ -306,7 +308,7 @@ public class AuthControllerIntegrationTest {
     })
     void register_shouldRejectWeakOrPwnedPasswords(String password) throws Exception {
         UserRegistrationRequest badRequest = new UserRegistrationRequest(
-                "username",
+                "user1",
                 null,
                 password
         );

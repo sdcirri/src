@@ -8,8 +8,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockUserWithId;
 import static it.sdc.src.test.fixtures.CryptoFixtures.*;
+import static it.sdc.src.test.fixtures.UserFixtures.mockUserWithId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
