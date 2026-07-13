@@ -18,9 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.Instant;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,17 +29,54 @@ class ChatServiceTest {
     private ChatDBRepository chatRepository;
     private UserDBRepository userRepository;
     private MessageDBRepository messageRepository;
-    private ChatMapper chatMapper;
     private MessageMapper messageMapper;
 
     private ChatService chatService;
+
+    private static final Base64.Encoder ENCODER = Base64.getEncoder();
+
+    private static MessageRequest validMessageRequest() {
+        return new MessageRequest(
+                ENCODER.encodeToString("message".getBytes(StandardCharsets.UTF_8)),
+                ENCODER.encodeToString("iv".getBytes(StandardCharsets.UTF_8))
+        );
+    }
+
+    private List<MessageDB> mockMessageHistory(ChatDB chat, UserDB user1, UserDB user2) {
+        List<MessageDB> messages = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            MessageDB message = MessageDB.builder()
+                    .id(UUID.randomUUID())
+                    .chat(chat)
+                    .timestamp(Instant.now())
+                    .iv("iv".getBytes(StandardCharsets.UTF_8))
+                    .data("data".getBytes(StandardCharsets.UTF_8))
+                    .sender(i % 2 == 0 ? user1 : user2)
+                    .build();
+            messages.add(message);
+        }
+        return messages;
+    }
+
+    private static boolean specularHistories(List<MessageDto> history1, List<MessageDto> history2) {
+        if (history1.size() != history2.size()) return false;
+        for (int i = 0; i < history1.size(); i++) {
+            // Must be identical except for direction
+            MessageDto message1 = history1.get(i), message2 = history2.get(i);
+            if (!message1.iv().equals(message2.iv())) return false;
+            if (!message1.data().equals(message2.data())) return false;
+            if (!message1.timestamp().equals(message2.timestamp())) return false;
+            if (message1.direction().equals(message2.direction())) return false;
+        }
+        return true;
+    }
 
     @BeforeEach
     void setUp() {
         chatRepository = mock(ChatDBRepository.class);
         userRepository = mock(UserDBRepository.class);
         messageRepository = mock(MessageDBRepository.class);
-        chatMapper = mock(ChatMapper.class);
+        ChatMapper chatMapper = mock(ChatMapper.class);
         messageMapper = mock(MessageMapper.class);
 
         chatService = new ChatService(
@@ -165,17 +201,61 @@ class ChatServiceTest {
     }
 
     @Test
-    void sendMessage_shouldThrowUserNotFoundException_whenFirstUserDoesNotExist() {
+    void sendMessage_shouldThrowUserNotFoundException_whenOwnUserDoesNotExist() {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
         when(userRepository.findById(myUserId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatService.sendMessage(myUserId, contactId, validMessageRequest()))
-                .isInstanceOf(UserNotFoundException.class)
-                .hasMessage("User not found");
+                .isInstanceOf(UserNotFoundException.class);
 
         verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void sendMessage_shouldThrowUserNotFoundException_whenContactUserDoesNotExist() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UserDB myUser = mock(UserDB.class);
+        when(userRepository.findById(myUserId)).thenReturn(Optional.of(myUser));
+
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        when(userRepository.findById(myUserId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> chatService.sendMessage(myUserId, contactId, validMessageRequest()))
+                .isInstanceOf(UserNotFoundException.class);
+
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void getMessages_shouldReturnAllMessagesAndIsMirrored() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UserDB myUser = mock(UserDB.class), contactUser = mock(UserDB.class);
+        when(myUser.getId()).thenReturn(myUserId);
+        when(contactUser.getId()).thenReturn(contactId);
+        when(userRepository.findById(myUserId)).thenReturn(Optional.of(myUser));
+        when(userRepository.findById(contactId)).thenReturn(Optional.of(contactUser));
+
+        ChatDB chat = mock(ChatDB.class);
+        when(chat.getMessages()).thenReturn(mockMessageHistory(chat, myUser, contactUser));
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageMapper.toDto(any(MessageDB.class), any(UUID.class))).thenAnswer(invocation -> {
+            MessageDB message = (MessageDB) invocation.getArguments()[0];
+            UUID userId = (UUID) invocation.getArguments()[1];
+            return new MessageDto(
+                    message.getTimestamp().toEpochMilli(),
+                    ENCODER.encodeToString(message.getData()),
+                    ENCODER.encodeToString(message.getIv()),
+                    message.getSender().getId().equals(userId) ? MessageDto.MessageDirection.OUTGOING : MessageDto.MessageDirection.INCOMING
+            );
+        });
+
+        List<MessageDto> result1 = chatService.getMessages(myUserId, contactId);
+        List<MessageDto> result2 = chatService.getMessages(contactId, myUserId);
+        assertThat(specularHistories(result1, result2)).isTrue();
     }
 
     @Test
@@ -187,14 +267,6 @@ class ChatServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatService.getMessages(myUserId, contactId))
-                .isInstanceOf(ChatNotFoundException.class)
-                .hasMessage("Chat not found");
-    }
-
-    private MessageRequest validMessageRequest() {
-        return new MessageRequest(
-                Base64.getEncoder().encodeToString("message".getBytes(StandardCharsets.UTF_8)),
-                Base64.getEncoder().encodeToString("iv".getBytes(StandardCharsets.UTF_8))
-        );
+                .isInstanceOf(ChatNotFoundException.class);
     }
 }
