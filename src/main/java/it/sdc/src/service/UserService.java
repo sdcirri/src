@@ -134,18 +134,14 @@ public class UserService {
      * @param userId user ID
      * @param rawImage image uploaded by the user
      * @return the updated user info
+     * @throws IOException when memory IO fails inside ProPicNormalizer.normalizeImage()
      */
     @Transactional
-    public UserDto setProPic(UUID userId, byte[] rawImage) {
+    public UserDto setProPic(UUID userId, byte[] rawImage) throws IOException {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        try {
-            user.setProPic(proPicNormalizer.normalizeImage(rawImage));
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Unexpected error while uploading image: ", e);
-        }
+        user.setProPic(proPicNormalizer.normalizeImage(rawImage));
         return userMapper.toDto(user);
     }
 }

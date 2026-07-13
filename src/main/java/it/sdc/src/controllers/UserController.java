@@ -10,6 +10,7 @@ import it.sdc.src.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +20,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @Validated
 @RequestMapping("/users")
 public class UserController {
+    static final String PROPIC_IO_ERROR_MSG = "Couldn't process image, please try again in a few minutes";
+
     private final UserService userService;
 
     @GetMapping("/search")
@@ -65,7 +69,8 @@ public class UserController {
             return userService.setProPic(userPrincipal.getUserId(), image.getBytes());
         }
         catch (IOException e) {
-            throw new RuntimeException("Couldn't process image: ", e);
+            log.error("Couldn't process image", e);
+            throw new RuntimeException(PROPIC_IO_ERROR_MSG);
         }
     }
 
