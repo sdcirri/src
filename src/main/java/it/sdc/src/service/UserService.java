@@ -116,11 +116,9 @@ public class UserService {
         if (user.getUsername().equals(username))
             return userMapper.toDto(user);
 
-        if (userRepository.existsByUsername(username))
-            throw new UsernameAlreadyTakenException("Username is already taken");
+        user.setUsername(username);
 
         try {
-            user.setUsername(username);
             userRepository.flush();
         }
         catch (DataIntegrityViolationException e) {
