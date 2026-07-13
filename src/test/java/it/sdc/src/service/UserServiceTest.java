@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 
 import java.io.IOException;
@@ -182,7 +183,9 @@ public class UserServiceTest {
 
         when(myUser.getUsername()).thenReturn(oldUsername);
         when(userRepository.findById(myUserId)).thenReturn(Optional.of(myUser));
-        when(userRepository.existsByUsername(newUsername)).thenReturn(true);
+        doThrow(new DataIntegrityViolationException("Unique constraint violation"))
+                .when(userRepository)
+                .flush();
 
         assertThatThrownBy(() -> userService.changeUsername(myUserId, newUsername)).isInstanceOf(UsernameAlreadyTakenException.class);
     }
