@@ -203,7 +203,7 @@ public class ChatControllerIntegrationTest {
                 .toList();
 
         MvcResult result = mockMvc.perform(
-                get("/chats/" + user2.getId())
+                get("/chats/{contactId}", user2.getId())
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -219,7 +219,7 @@ public class ChatControllerIntegrationTest {
     @Test
     void getMessageHistory_requiresAuth() throws Exception {
         mockMvc.perform(
-                get("/chats/" + UUID.randomUUID()).accept(MediaType.APPLICATION_JSON)
+                get("/chats/{contactId}", UUID.randomUUID()).accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isUnauthorized());
     }
 
@@ -231,7 +231,7 @@ public class ChatControllerIntegrationTest {
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(
-                get("/chats/" + UUID.randomUUID())
+                get("/chats/{contactId}", UUID.randomUUID())
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isNotFound());
@@ -250,7 +250,7 @@ public class ChatControllerIntegrationTest {
         MessageRequest request = mockMessageRequest();
 
         MvcResult result = mockMvc.perform(
-                post("/chats/" + contact.getId())
+                post("/chats/{contactId}", contact.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .content(objectMapper.writeValueAsString(request))
@@ -273,7 +273,7 @@ public class ChatControllerIntegrationTest {
         MessageRequest request = mockMessageRequest();
 
         mockMvc.perform(
-                post("/chats/" + contact.getId())
+                post("/chats/{contactId}", contact.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .content(objectMapper.writeValueAsString(request))
@@ -288,7 +288,7 @@ public class ChatControllerIntegrationTest {
     @Test
     void sendMessage_requiresAuth() throws Exception {
         mockMvc.perform(
-                post("/chat/" + UUID.randomUUID())
+                post("/chats/{contactId}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockMessageRequest()))
         ).andExpect(status().isUnauthorized());
@@ -302,7 +302,7 @@ public class ChatControllerIntegrationTest {
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(
-                post("/chats/" + UUID.randomUUID())
+                post("/chats/{contactId}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .content(objectMapper.writeValueAsString(mockMessageRequest()))
@@ -318,7 +318,7 @@ public class ChatControllerIntegrationTest {
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
         mockMvc.perform(
-                post("/chats/" + UUID.randomUUID())
+                post("/chats/{contactId}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
                         .content(objectMapper.writeValueAsString(badRequest))
