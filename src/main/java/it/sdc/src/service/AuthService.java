@@ -104,6 +104,8 @@ public class AuthService {
     public UserSessionDto refreshAccessToken(byte[] refreshToken) {
         UserSessionDB session = userSessionRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
+        if(Instant.now().isAfter(session.getRefreshTokenExpires()))
+            throw new LoginFailedException("Invalid refresh token");
 
         tokenIntrospectionCache.evict(session);
         userSessionRepository.delete(session);

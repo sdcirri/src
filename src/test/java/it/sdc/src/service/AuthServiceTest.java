@@ -35,13 +35,9 @@ public class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
     private SecureRandom secureRandom;
 
-    private UserSessionMapper userSessionMapper;
-    private UserCryptoMapper userCryptoMapper;
-
     private UserSessionDBRepository userSessionRepository;
     private UserCryptoDBRepository userCryptoRepository;
     private UserDBRepository userRepository;
-    private TokenIntrospectionCache tokenIntrospectionCache;
 
     private AuthService authService;
 
@@ -50,13 +46,13 @@ public class AuthServiceTest {
         passwordEncoder = mock(Argon2PasswordEncoder.class);
         secureRandom = new SecureRandom();
 
-        userSessionMapper = new UserSessionMapper();
-        userCryptoMapper = new UserCryptoMapper();
+        UserSessionMapper userSessionMapper = new UserSessionMapper();
+        UserCryptoMapper userCryptoMapper = new UserCryptoMapper();
 
         userSessionRepository = mock(UserSessionDBRepository.class);
         userCryptoRepository = mock(UserCryptoDBRepository.class);
         userRepository = mock(UserDBRepository.class);
-        tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
+        TokenIntrospectionCache tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
 
         AuthProperties authProperties = new AuthProperties();
         authProperties.setAccessTokenValiditySeconds(3600);
@@ -378,6 +374,7 @@ public class AuthServiceTest {
         secureRandom.nextBytes(refreshToken);
 
         UserSessionDB userSession = mock(UserSessionDB.class);
+        when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().plusSeconds(10000));
         when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.of(userSession));
         when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
             UserSessionDB session = invocation.getArgument(0);
@@ -396,5 +393,39 @@ public class AuthServiceTest {
         assertThat(result.refreshToken()).isNotBlank();
         assertThat(result.accessTokenExpires() > Instant.now().toEpochMilli()).isTrue();
         assertThat(result.refreshTokenExpires() > Instant.now().toEpochMilli()).isTrue();
+    }
+
+    @Test
+    void refreshAccessToken_rejectsExpiredRefreshToken() {
+        byte[] refreshToken = new byte[32];
+        secureRandom.nextBytes(refreshToken);
+
+        UserSessionDB userSession = mock(UserSessionDB.class);
+        when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().minusSeconds(1));
+        when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.of(userSession));
+        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
+            UserSessionDB session = invocation.getArgument(0);
+            return UserSessionDB.builder()
+                    .id(UUID.randomUUID())
+                    .user(session.getUser())
+                    .accessToken(session.getAccessToken())
+                    .accessTokenExpires(session.getAccessTokenExpires())
+                    .refreshToken(session.getRefreshToken())
+                    .refreshTokenExpires(session.getRefreshTokenExpires())
+                    .build();
+        });
+
+        assertThatThrownBy(() -> authService.refreshAccessToken(refreshToken))
+                .isInstanceOf(LoginFailedException.class);
+    }
+
+    @Test
+    void refreshAccessToken_rejectsInvalidRefreshToken() {
+        byte[] refreshToken = new byte[32];
+        secureRandom.nextBytes(refreshToken);
+
+        when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> authService.refreshAccessToken(refreshToken))
+                .isInstanceOf(LoginFailedException.class);
     }
 }
