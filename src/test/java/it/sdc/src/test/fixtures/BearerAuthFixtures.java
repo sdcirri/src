@@ -51,7 +51,7 @@ public final class BearerAuthFixtures {
                 .build();
     }
 
-    private static UserPrincipal mockPrincipal(UserSessionDB session) {
+    public static UserPrincipal mockPrincipal(UserSessionDB session) {
         return new UserPrincipal(
                 session.getUser().getId(),
                 session.getUser().getUsername(),
