@@ -11,8 +11,4 @@ public abstract class BusinessException extends RuntimeException {
         super(message);
         this.statusCode = statusCode;
     }
-
-    public BusinessException(HttpStatus statusCode) {
-        this.statusCode = statusCode;
-    }
 }
