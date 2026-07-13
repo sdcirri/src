@@ -32,11 +32,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND.getReasonPhrase(), HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(BadOpaqueTokenException.class)
-    public ResponseEntity<?> handleBadOpaqueTokenException(BadOpaqueTokenException ex) {
-        return new ResponseEntity<>(HttpStatus.UNAUTHORIZED.getReasonPhrase(), HttpStatus.UNAUTHORIZED);
-    }
-
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<?> handleBusinessException(BusinessException ex) {
         return new ResponseEntity<>(ex.getMessage(), ex.getStatusCode());
