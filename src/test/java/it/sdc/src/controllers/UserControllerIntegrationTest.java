@@ -1,13 +1,18 @@
 package it.sdc.src.controllers;
 
+import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
+import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
+import it.sdc.src.dto.ContactCryptoDto;
+import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
 import it.sdc.src.dto.requests.accountedits.DisplayNameChangeRequest;
 import it.sdc.src.dto.requests.accountedits.UsernameChangeRequest;
 import it.sdc.src.service.ProPicNormalizer;
+import it.sdc.src.service.mapping.UserCryptoMapper;
 import it.sdc.src.service.mapping.UserMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,6 +42,7 @@ import java.util.List;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockBearerTokenHeader;
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockSession;
+import static it.sdc.src.test.fixtures.CryptoFixtures.mockUserCryptoDBSpecs;
 import static it.sdc.src.test.fixtures.GraphicsFixtures.createPngImage;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,7 +74,13 @@ public class UserControllerIntegrationTest {
     UserSessionDBRepository sessionRepository;
 
     @Autowired
+    UserCryptoDBRepository cryptoRepository;
+
+    @Autowired
     UserMapper userMapper;
+
+    @Autowired
+    UserCryptoMapper cryptoMapper;
 
     @Autowired
     ObjectMapper objectMapper;
@@ -515,16 +527,170 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldRejectEmptyMultipart() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
 
+        UserDB myUser = mockUser(passwordEncoder, 1);
+        myUser.setProPic(null);
+        myUser = userRepository.save(myUser);
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        mockMvc.perform(
+                multipart(HttpMethod.PUT, "/users/me/propic")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isBadRequest());
     }
 
     @Test
     void setProPic_shouldRejectBadImage() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
 
+        UserDB myUser = mockUser(passwordEncoder, 1);
+        myUser.setProPic(null);
+        myUser = userRepository.save(myUser);
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        byte[] newProPic = new byte[] {1, 2, 3, 4, 5};
+        MockMultipartFile mockMultipartFile = new MockMultipartFile(
+                "image", "photo.png", "image/png", newProPic
+        );
+
+        mockMvc.perform(
+                multipart(HttpMethod.PUT, "/users/me/propic")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .file(mockMultipartFile)
+        ).andExpect(status().isBadRequest());
     }
 
     @Test
     void setProPic_requiresAuth() throws Exception {
+        MockMultipartFile mockMultipartFile = new MockMultipartFile(
+                "image", "photo.png", "image/png", createPngImage(256, 256, Color.GREEN)
+        );
 
+        mockMvc.perform(
+                multipart(HttpMethod.PUT, "/users/me/propic")
+                        .file(mockMultipartFile)
+        ).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getCryptoSpecs_shouldReturnOwnCryptoSpecs() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        UserCryptoDto expected = cryptoMapper.toPrivateDto(myCrypto);
+
+        MvcResult result = mockMvc.perform(
+                get("/users/me/crypto")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isOk()).andReturn();
+
+        UserCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), UserCryptoDto.class);
+        assertThat(userCrypto).isEqualTo(expected);
+    }
+
+    @Test
+    void getCryptoSpecs_rejectsPartiallyRegisteredUser() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        mockMvc.perform(
+                get("/users/me/crypto")
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getCryptoSpecs_requiresAuth() throws Exception {
+        mockMvc.perform(
+                get("/users/me/crypto")
+        ).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getUserCryptoSpecs_shouldReturnUserPublicCryptoSpecs() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserCryptoDB contactCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(contact));
+
+        ContactCryptoDto expected = cryptoMapper.toPublicDto(contactCrypto);
+
+        MvcResult result = mockMvc.perform(
+                get("/users/{userId}/crypto", contact.getId())
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isOk()).andReturn();
+
+        ContactCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), ContactCryptoDto.class);
+        assertThat(userCrypto).isEqualTo(expected);
+    }
+
+    @Test
+    void getUserCryptoSpecs_shouldNotLeakPrivateCryptoSpecs() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        cryptoRepository.save(mockUserCryptoDBSpecs(contact));
+
+        MvcResult result = mockMvc.perform(
+                get("/users/{userId}/crypto", contact.getId())
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isOk()).andReturn();
+
+        UserCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), UserCryptoDto.class);
+        assertThat(userCrypto.kekSalt()).isNull();
+        assertThat(userCrypto.privateEd25519Crypto()).isNull();
+        assertThat(userCrypto.privateEd25519IV()).isNull();
+        assertThat(userCrypto.privateX25519Crypto()).isNull();
+        assertThat(userCrypto.privateX25519IV()).isNull();
+    }
+
+    @Test
+    void getUserCryptoSpecs_shouldHandleSelf() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+        cryptoRepository.deleteAll();
+
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
+        UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
+
+        ContactCryptoDto expected = cryptoMapper.toPublicDto(myCrypto);
+
+        MvcResult result = mockMvc.perform(
+                get("/users/{userId}/crypto", myUser.getId())
+                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+        ).andExpect(status().isOk()).andReturn();
+
+        ContactCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), ContactCryptoDto.class);
+        assertThat(userCrypto).isEqualTo(expected);
+    }
+
+    @Test
+    void getUserCryptoSpecs_requiresAuth() throws Exception {
+        mockMvc.perform(
+                get("/users/{userId}/crypto", UUID.randomUUID())
+        ).andExpect(status().isUnauthorized());
     }
 }
