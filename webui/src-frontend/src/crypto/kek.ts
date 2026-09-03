@@ -25,10 +25,10 @@ async function decrypt(key: Uint8Array, iv: Uint8Array, ciphertext: Uint8Array):
     };
 
     const cryptoKey = await crypto.subtle.importKey(
-        "raw", toArrayBuffer(key), { name: "AES-GCM" }, false, ["decrypt"]
+        'raw', toArrayBuffer(key), { name: 'AES-GCM' }, false, ['decrypt']
     );
     const plaintext = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: toArrayBuffer(iv) },
+        { name: 'AES-GCM', iv: toArrayBuffer(iv) },
         cryptoKey,
         toArrayBuffer(ciphertext)
     );
