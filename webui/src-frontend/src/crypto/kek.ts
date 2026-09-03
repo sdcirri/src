@@ -1,7 +1,7 @@
 import { argon2id } from '@noble/hashes/argon2.js';
 
-import type { UserCryptoDto } from '../api/types.ts';
-import {aesDecrypt} from "./common.ts";
+import type { UserCryptoDto } from '@/api/types.ts';
+import {aesDecrypt} from './common.ts';
 
 export type DecryptedCryptoSpecs = {
     privateEd25519: Uint8Array;
@@ -25,10 +25,10 @@ export function generateArgonSalt(): Uint8Array {
 export async function decryptKeys(mySpecs: UserCryptoDto, password: string, salt: Uint8Array): Promise<DecryptedCryptoSpecs> {
     const hash = argon2idForKek(password, salt);
     const plainEd25519 = await aesDecrypt(
-        hash, { cipherText: fromBase64(mySpecs.privateEd25519IV), iv: fromBase64(mySpecs.privateEd25519Crypto) }
+        hash, { iv: fromBase64(mySpecs.privateEd25519IV), cipherText: fromBase64(mySpecs.privateEd25519Crypto) }
     );
     const plainX25519 = await aesDecrypt(
-        hash, { cipherText: fromBase64(mySpecs.privateX25519IV), iv: fromBase64(mySpecs.privateX25519Crypto) }
+        hash, { iv: fromBase64(mySpecs.privateX25519IV), cipherText: fromBase64(mySpecs.privateX25519Crypto) }
     );
 
     return {
