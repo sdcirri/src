@@ -13,17 +13,17 @@ function fromBase64(b64: string): Uint8Array {
     return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }
 
+function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
+    const buf = new ArrayBuffer(u8.byteLength);
+    new Uint8Array(buf).set(u8);
+    return buf;
+}
+
 function argon2idForKek(password: string, salt: Uint8Array): Uint8Array {
     return argon2id(password as string, salt, { t: 3, m: 65536, p: 4, dkLen: 32 });
 }
 
 async function decrypt(key: Uint8Array, iv: Uint8Array, ciphertext: Uint8Array): Promise<Uint8Array> {
-    const toArrayBuffer = (u8: Uint8Array): ArrayBuffer => {
-        const buf = new ArrayBuffer(u8.byteLength);
-        new Uint8Array(buf).set(u8);
-        return buf;
-    };
-
     const cryptoKey = await crypto.subtle.importKey(
         'raw', toArrayBuffer(key), { name: 'AES-GCM' }, false, ['decrypt']
     );
