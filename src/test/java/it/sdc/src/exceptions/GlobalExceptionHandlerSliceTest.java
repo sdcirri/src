@@ -1,6 +1,7 @@
 package it.sdc.src.exceptions;
 
 import it.sdc.src.auth.UserPrincipal;
+import it.sdc.src.service.AuthCookieService;
 import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
 import it.sdc.src.service.UserService;
@@ -28,6 +29,9 @@ public class GlobalExceptionHandlerSliceTest {
 
     @MockitoBean
     AuthService authService;
+
+    @MockitoBean
+    AuthCookieService authCookieService;
 
     @MockitoBean
     ChatService chatService;

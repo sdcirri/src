@@ -3,12 +3,18 @@ package it.sdc.src.test.fixtures;
 import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
+import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.service.AuthCookieService;
 import jakarta.servlet.http.Cookie;
+import org.springframework.http.HttpHeaders;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public final class BearerAuthFixtures {
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
@@ -53,6 +59,16 @@ public final class BearerAuthFixtures {
                 .build();
     }
 
+    public static UserSessionDto mockSessionDto() {
+        return new UserSessionDto(
+                UUID.randomUUID(),
+                java.util.Base64.getEncoder().encodeToString(new byte[32]),
+                Instant.now().plusSeconds(3600).toEpochMilli(),
+                java.util.Base64.getEncoder().encodeToString(new byte[32]),
+                Instant.now().plusSeconds(1209600).toEpochMilli()
+        );
+    }
+
     public static UserPrincipal mockPrincipal(UserSessionDB session) {
         return new UserPrincipal(
                 session.getUser().getId(),
@@ -75,5 +91,21 @@ public final class BearerAuthFixtures {
                 AuthCookieService.REFRESH_COOKIE_NAME,
                 ENCODER.encodeToString(session.getRefreshToken())
         );
+    }
+
+    public static List<String> setCookieHeaders(MvcResult result) {
+        return result.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
+    }
+
+    public static Optional<String> findCookieValue(MvcResult result, String cookieName) {
+        String prefix = cookieName + "=";
+        return setCookieHeaders(result).stream()
+                .filter(header -> header.startsWith(prefix))
+                .findFirst()
+                .map(header -> {
+                    String valuePart = header.substring(prefix.length());
+                    int semicolon = valuePart.indexOf(';');
+                    return semicolon < 0 ? valuePart : valuePart.substring(0, semicolon);
+                });
     }
 }

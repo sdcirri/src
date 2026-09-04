@@ -7,18 +7,12 @@ import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.UserCryptoDto;
-import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.LoginRequest;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
-import it.sdc.src.service.mapping.UserSessionMapper;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
+import it.sdc.src.service.AuthCookieService;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -37,10 +31,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
-import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
@@ -50,6 +42,7 @@ import static it.sdc.src.test.fixtures.UserFixtures.USER_PASSWORD;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -87,11 +80,7 @@ public class AuthControllerIntegrationTest {
     @Autowired
     ObjectMapper objectMapper;
 
-    @Autowired
-    private UserSessionMapper userSessionMapper;
-
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
-    private static Validator VALIDATOR;
 
     private static PasswordChangeRequest mockPasswordChangeRequest(String newPassword) {
         return new PasswordChangeRequest(
@@ -134,11 +123,11 @@ public class AuthControllerIntegrationTest {
         return Stream.of(mockPasswordChangeRequest(""), mockPasswordChangeRequest(null));
     }
 
-    @BeforeAll
-    static void setUpValidator() {
-        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
-            VALIDATOR = factory.getValidator();
-        }
+    private static void assertAuthSessionCookies(MvcResult result) {
+        assertThat(findCookieValue(result, AuthCookieService.ACCESS_COOKIE_NAME)).isPresent();
+        assertThat(findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME)).isPresent();
+        assertThat(findCookieValue(result, AuthCookieService.ACCESS_COOKIE_NAME).orElseThrow()).isNotBlank();
+        assertThat(findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow()).isNotBlank();
     }
 
     @Test
@@ -153,16 +142,12 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                     .contentType(String.valueOf(MediaType.APPLICATION_JSON))
                     .content(objectMapper.writeValueAsString(req))
-        ).andExpect(status().isOk()).andReturn();
+        ).andExpect(status().isNoContent())
+                .andExpect(header().exists("Set-Cookie"))
+                .andReturn();
 
-        UserSessionDto resp = objectMapper.readValue(
-                result.getResponse().getContentAsString(),
-                UserSessionDto.class
-        );
-
-        assertThat(resp).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(resp);
-        assertThat(violations).isEmpty();
+        assertThat(result.getResponse().getContentAsString()).isEmpty();
+        assertAuthSessionCookies(result);
     }
 
     @ParameterizedTest
@@ -223,22 +208,16 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                         .cookie(mockRefreshCookie(userSession))
                         .contentType(MediaType.APPLICATION_JSON)
-        ).andExpect(status().isOk()).andReturn();
+        ).andExpect(status().isNoContent())
+                .andExpect(header().exists("Set-Cookie"))
+                .andReturn();
 
-        UserSessionDto newSession = objectMapper.readValue(
-                result.getResponse().getContentAsString(),
-                UserSessionDto.class
-        );
+        assertThat(result.getResponse().getContentAsString()).isEmpty();
+        assertAuthSessionCookies(result);
 
-        assertThat(newSession).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(newSession);
-        assertThat(violations).isEmpty();
-
-        assertThat(newSession.accessTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
-        assertThat(newSession.refreshTokenExpires()).isGreaterThan(Instant.now().toEpochMilli());
-        assertThat(newSession.refreshToken()).isNotEqualTo(
-                ENCODER.encodeToString(userSession.getRefreshToken())
-        );
+        String oldRefreshToken = ENCODER.encodeToString(userSession.getRefreshToken());
+        String newRefreshToken = findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow();
+        assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
     }
 
     @Test
@@ -269,12 +248,12 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-        ).andExpect(status().isCreated()).andReturn();
+        ).andExpect(status().isCreated())
+                .andExpect(header().exists("Set-Cookie"))
+                .andReturn();
 
-        UserSessionDto session = objectMapper.readValue(result.getResponse().getContentAsString(), UserSessionDto.class);
-        assertThat(session).isNotNull();
-        Set<ConstraintViolation<UserSessionDto>> violations = VALIDATOR.validate(session);
-        assertThat(violations).isEmpty();
+        assertThat(result.getResponse().getContentAsString()).isEmpty();
+        assertAuthSessionCookies(result);
     }
 
     @ParameterizedTest
@@ -416,7 +395,7 @@ public class AuthControllerIntegrationTest {
         for (int i = 0; i < 10; i++)
             sessionRepository.save(mockSession(user));
         UserSessionDB session = sessionRepository.save(mockSession(user));
-        UserSessionDto oldSessionDto = userSessionMapper.toDto(session);
+        String oldRefreshToken = ENCODER.encodeToString(session.getRefreshToken());
 
         cryptoRepository.save(mockUserCryptoDBSpecs(user));
 
@@ -431,11 +410,14 @@ public class AuthControllerIntegrationTest {
                         .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-        ).andExpect(status().isOk()).andReturn();
+        ).andExpect(status().isNoContent())
+                .andExpect(header().exists("Set-Cookie"))
+                .andReturn();
 
-        UserSessionDto newSession = objectMapper.readValue(result.getResponse().getContentAsString(), UserSessionDto.class);
-        assertThat(newSession).isNotNull();
-        assertThat(newSession).isNotEqualTo(oldSessionDto);
+        assertThat(result.getResponse().getContentAsString()).isEmpty();
+        assertAuthSessionCookies(result);
+        String newRefreshToken = findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow();
+        assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
         assertThat(sessionRepository.findAllByUser_Id(user.getId()).size()).isEqualTo(1);
 
         // Also check whether crypto was updated successfully

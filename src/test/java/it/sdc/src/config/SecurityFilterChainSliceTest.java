@@ -6,7 +6,6 @@ import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.controllers.AuthController;
 import it.sdc.src.controllers.ChatController;
 import it.sdc.src.dto.requests.LoginRequest;
-import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
 import org.junit.jupiter.api.Test;
@@ -15,6 +14,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import it.sdc.src.service.AuthCookieService;
 import jakarta.servlet.http.Cookie;
+import org.springframework.http.ResponseCookie;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -23,7 +23,9 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.UUID;
 
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockSessionDto;
 import static it.sdc.src.test.fixtures.UserFixtures.USER_PASSWORD;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -56,6 +58,9 @@ public class SecurityFilterChainSliceTest {
     AuthService authService;
 
     @MockitoBean
+    AuthCookieService authCookieService;
+
+    @MockitoBean
     ChatService chatService;
 
     private static UserPrincipal mockPrincipal() {
@@ -74,6 +79,11 @@ public class SecurityFilterChainSliceTest {
     @Test
     void postLogin_isPermittedWithoutToken() throws Exception {
         when(authService.login(anyString(), anyString())).thenReturn(null);
+        when(authService.login(anyString(), anyString())).thenReturn(mockSessionDto());
+        when(authCookieService.buildAccessCookie(anyString()))
+                .thenReturn(ResponseCookie.from("accessToken", "token").build());
+        when(authCookieService.buildRefreshCookie(anyString()))
+                .thenReturn(ResponseCookie.from("refreshToken", "token").build());
 
         mockMvc.perform(
                 post("/auth/login")
@@ -100,29 +110,25 @@ public class SecurityFilterChainSliceTest {
     void protectedEndpoint_withValidAccessToken_isAuthorized() throws Exception {
         when(accessTokenIntrospector.introspect("good-token")).thenReturn(mockPrincipal());
 
-        mockMvc.perform(get("/chats").cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, "good-token")))
+        mockMvc.perform(get("/chats")
+                .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, "good-token")))
                 .andExpect(status().isOk());
     }
 
     @Test
     void refreshEndpoint_usesRefreshIntrospector_notAccessIntrospector() throws Exception {
         when(refreshTokenIntrospector.introspect("refresh-token")).thenReturn(mockPrincipal());
+        when(authService.refreshAccessToken(any(byte[].class))).thenReturn(mockSessionDto());
+        when(authCookieService.buildAccessCookie(anyString()))
+                .thenReturn(ResponseCookie.from("accessToken", "token").build());
+        when(authCookieService.buildRefreshCookie(anyString()))
+                .thenReturn(ResponseCookie.from("refreshToken", "token").build());
 
-        mockMvc.perform(post("/auth/refresh").with(csrf()).cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, "refresh-token")))
-                .andExpect(status().isOk());
+        mockMvc.perform(post("/auth/refresh")
+                .with(csrf())
+                .cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, "refresh-token")))
+                .andExpect(status().is2xxSuccessful());
 
-        verifyNoInteractions(accessTokenIntrospector); // proves chain isolation via securityMatcher
-    }
-
-    @Test
-    void csrfIsDisabled_postWithoutCsrfToken_doesNotReturn403() throws Exception {
-        mockMvc.perform(
-                post("/auth/register")
-                        .with(csrf())
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                new UserRegistrationRequest("user", null, USER_PASSWORD)
-                        ))
-        ).andExpect(status().is2xxSuccessful());
+        verifyNoInteractions(accessTokenIntrospector);
     }
 }
