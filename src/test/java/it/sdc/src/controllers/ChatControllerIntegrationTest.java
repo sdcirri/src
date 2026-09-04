@@ -18,7 +18,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -44,6 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -170,7 +171,7 @@ public class ChatControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/chats")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
 
@@ -204,7 +205,7 @@ public class ChatControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
 
@@ -232,7 +233,7 @@ public class ChatControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/chats/{contactId}", UUID.randomUUID())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isNotFound());
     }
@@ -251,8 +252,9 @@ public class ChatControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 post("/chats/{contactId}", contact.getId())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isCreated()).andReturn();
 
@@ -274,8 +276,9 @@ public class ChatControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/chats/{contactId}", contact.getId())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isCreated());
 
@@ -289,6 +292,7 @@ public class ChatControllerIntegrationTest {
     void sendMessage_requiresAuth() throws Exception {
         mockMvc.perform(
                 post("/chats/{contactId}", UUID.randomUUID())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockMessageRequest()))
         ).andExpect(status().isUnauthorized());
@@ -303,8 +307,9 @@ public class ChatControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/chats/{contactId}", UUID.randomUUID())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .content(objectMapper.writeValueAsString(mockMessageRequest()))
         ).andExpect(status().isNotFound());
     }
@@ -319,8 +324,9 @@ public class ChatControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/chats/{contactId}", UUID.randomUUID())
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .cookie(mockAccessCookie(session))
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
     }

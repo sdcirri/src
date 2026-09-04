@@ -13,4 +13,5 @@ import org.springframework.validation.annotation.Validated;
 public class AuthProperties {
     private @Positive long accessTokenValiditySeconds;
     private @Positive long refreshTokenValiditySeconds;
+    private boolean cookieSecure;
 }

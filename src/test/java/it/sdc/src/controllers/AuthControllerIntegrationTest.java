@@ -25,7 +25,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -52,6 +51,8 @@ import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -149,6 +150,7 @@ public class AuthControllerIntegrationTest {
         LoginRequest req = new LoginRequest("user1", USER_PASSWORD);
         MvcResult result = mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                     .contentType(String.valueOf(MediaType.APPLICATION_JSON))
                     .content(objectMapper.writeValueAsString(req))
         ).andExpect(status().isOk()).andReturn();
@@ -168,6 +170,7 @@ public class AuthControllerIntegrationTest {
     void login_shouldRejectNullOrBlankFields(LoginRequest badRequest) throws Exception {
         mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
@@ -182,6 +185,7 @@ public class AuthControllerIntegrationTest {
         LoginRequest req = new LoginRequest("user1", "12345678");
         mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req))
         ).andExpect(status().isUnauthorized());
@@ -193,11 +197,13 @@ public class AuthControllerIntegrationTest {
         LoginRequest nullUsername = new LoginRequest(null, USER_PASSWORD);
         mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nullPassword))
         ).andExpect(status().isBadRequest());
         mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nullUsername))
         ).andExpect(status().isBadRequest());
@@ -214,7 +220,8 @@ public class AuthControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 post("/auth/refresh")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerRefreshTokenHeader(userSession))
+                        .with(csrf())
+                        .cookie(mockRefreshCookie(userSession))
                         .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
 
@@ -245,7 +252,8 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/refresh")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerRefreshTokenHeader(userSession))
+                        .with(csrf())
+                        .cookie(mockRefreshCookie(userSession))
                         .contentType(MediaType.APPLICATION_JSON)
         ).andExpect(status().isUnauthorized());
     }
@@ -258,6 +266,7 @@ public class AuthControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 post("/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isCreated()).andReturn();
@@ -273,6 +282,7 @@ public class AuthControllerIntegrationTest {
     void register_shouldRejectInvalidFields(UserRegistrationRequest badRequest) throws Exception {
         mockMvc.perform(
                 post("/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
@@ -293,6 +303,7 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isConflict());
@@ -315,6 +326,7 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/register")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
@@ -334,7 +346,8 @@ public class AuthControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 post("/auth/register/finalize")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -367,6 +380,7 @@ public class AuthControllerIntegrationTest {
     void finalizeRegistration_shouldRejectUnauthenticatedCalls() throws Exception {
         mockMvc.perform(
                 post("/auth/register/finalize")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
         ).andExpect(status().isUnauthorized());
@@ -384,7 +398,8 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/register/finalize")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
         ).andExpect(status().isConflict());
@@ -412,7 +427,8 @@ public class AuthControllerIntegrationTest {
         PasswordChangeRequest request = mockPasswordChangeRequest(newPassword);
         MvcResult result = mockMvc.perform(
                 post("/auth/me/password")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -445,7 +461,8 @@ public class AuthControllerIntegrationTest {
         assertThat(passwordEncoder.matches(USER_PASSWORD, user.getPasswordHash())).isTrue();
         mockMvc.perform(
                 post("/auth/me/password")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(USER_PASSWORD)))
         ).andExpect(status().isConflict());
@@ -462,7 +479,8 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/me/password")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
@@ -485,7 +503,8 @@ public class AuthControllerIntegrationTest {
 
         mockMvc.perform(
                 post("/auth/me/password")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(session))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(badPassword)))
         ).andExpect(status().isBadRequest());

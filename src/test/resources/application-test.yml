@@ -5,3 +5,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+
+  auth:
+    cookie-secure: false

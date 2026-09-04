@@ -33,11 +33,3 @@ export type UserDto = {
     displayName: string;
     proPic: string;
 };
-
-export type UserSessionDto = {
-    id: string;
-    accessToken: string;
-    accessTokenExpires: number;
-    refreshToken: string;
-    refreshTokenExpires: number;
-};

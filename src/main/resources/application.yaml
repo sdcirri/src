@@ -17,6 +17,7 @@ spring:
 auth:
   access-token-validity-seconds: 3600
   refresh-token-validity-seconds: 1209600
+  cookie-secure: false    # should be true, false just for demo
 
 media:
   propics:

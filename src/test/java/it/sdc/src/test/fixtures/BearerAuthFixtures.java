@@ -3,6 +3,8 @@ package it.sdc.src.test.fixtures;
 import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
+import it.sdc.src.service.AuthCookieService;
+import jakarta.servlet.http.Cookie;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -61,11 +63,17 @@ public final class BearerAuthFixtures {
         );
     }
 
-    public static String mockBearerTokenHeader(UserSessionDB session) {
-        return String.format("Bearer %s", ENCODER.encodeToString(session.getAccessToken()));
+    public static Cookie mockAccessCookie(UserSessionDB session) {
+        return new Cookie(
+                AuthCookieService.ACCESS_COOKIE_NAME,
+                ENCODER.encodeToString(session.getAccessToken())
+        );
     }
 
-    public static String mockBearerRefreshTokenHeader(UserSessionDB session) {
-        return String.format("Bearer %s", ENCODER.encodeToString(session.getRefreshToken()));
+    public static Cookie mockRefreshCookie(UserSessionDB session) {
+        return new Cookie(
+                AuthCookieService.REFRESH_COOKIE_NAME,
+                ENCODER.encodeToString(session.getRefreshToken())
+        );
     }
 }

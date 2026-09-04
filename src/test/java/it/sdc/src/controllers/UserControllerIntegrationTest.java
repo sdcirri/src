@@ -20,7 +20,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -40,7 +39,7 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
-import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockBearerTokenHeader;
+import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockAccessCookie;
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.mockSession;
 import static it.sdc.src.test.fixtures.CryptoFixtures.mockUserCryptoDBSpecs;
 import static it.sdc.src.test.fixtures.GraphicsFixtures.createPngImage;
@@ -48,6 +47,8 @@ import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -108,7 +109,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/search?q=" + goodPrefix)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         List<UserDto> results = objectMapper.readValue(
@@ -120,7 +121,7 @@ public class UserControllerIntegrationTest {
 
         result = mockMvc.perform(
                 get("/users/search?q=" + badPrefix)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         results = objectMapper.readValue(
@@ -143,7 +144,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/search?q=" + query)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         List<UserDto> results = objectMapper.readValue(
@@ -174,7 +175,7 @@ public class UserControllerIntegrationTest {
         do {
             MvcResult result = mockMvc.perform(
                     get("/users/search?q=user&n=" + n++)    // all mock users start with "user"
-                            .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                            .cookie(mockAccessCookie(mySession))
             ).andExpect(status().isOk()).andReturn();
 
             page = objectMapper.readValue(
@@ -200,7 +201,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/search")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isBadRequest());
     }
 
@@ -215,7 +216,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/search?q=" + "A".repeat(querySize))
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isBadRequest());
     }
 
@@ -230,7 +231,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/search?q=" + "A".repeat(querySize))
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk());
     }
 
@@ -254,7 +255,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/" + otherUser.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         UserDto userInfo = objectMapper.readValue(result.getResponse().getContentAsString(), UserDto.class);
@@ -273,7 +274,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/" + myUser.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         UserDto userInfo = objectMapper.readValue(result.getResponse().getContentAsString(), UserDto.class);
@@ -294,7 +295,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/" + badUserId)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isNotFound());
     }
 
@@ -316,7 +317,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/" + badId)
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isBadRequest());
     }
 
@@ -338,7 +339,8 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 put("/users/me/display_name")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -360,7 +362,8 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/users/me/display_name")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isBadRequest());
@@ -380,7 +383,8 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 put("/users/me/display_name")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -415,7 +419,8 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 put("/users/me/username")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -437,7 +442,8 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/users/me/username")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isBadRequest());
@@ -457,7 +463,8 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 put("/users/me/username")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isOk()).andReturn();
@@ -480,7 +487,8 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 put("/users/me/username")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new UsernameChangeRequest(username)))
         ).andExpect(status().isBadRequest());
@@ -517,7 +525,8 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 multipart(HttpMethod.PUT, "/users/me/propic")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .file(mockMultipartFile)
         ).andExpect(status().isOk()).andReturn();
 
@@ -537,7 +546,8 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 multipart(HttpMethod.PUT, "/users/me/propic")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isBadRequest());
     }
 
@@ -558,7 +568,8 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 multipart(HttpMethod.PUT, "/users/me/propic")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .with(csrf())
+                        .cookie(mockAccessCookie(mySession))
                         .file(mockMultipartFile)
         ).andExpect(status().isBadRequest());
     }
@@ -571,6 +582,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 multipart(HttpMethod.PUT, "/users/me/propic")
+                        .with(csrf())
                         .file(mockMultipartFile)
         ).andExpect(status().isUnauthorized());
     }
@@ -589,7 +601,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/me/crypto")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         UserCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), UserCryptoDto.class);
@@ -607,7 +619,7 @@ public class UserControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/users/me/crypto")
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isNotFound());
     }
 
@@ -634,7 +646,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/{userId}/crypto", contact.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         ContactCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), ContactCryptoDto.class);
@@ -655,7 +667,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/{userId}/crypto", contact.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         UserCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), UserCryptoDto.class);
@@ -680,7 +692,7 @@ public class UserControllerIntegrationTest {
 
         MvcResult result = mockMvc.perform(
                 get("/users/{userId}/crypto", myUser.getId())
-                        .header(HttpHeaders.AUTHORIZATION, mockBearerTokenHeader(mySession))
+                        .cookie(mockAccessCookie(mySession))
         ).andExpect(status().isOk()).andReturn();
 
         ContactCryptoDto userCrypto = objectMapper.readValue(result.getResponse().getContentAsString(), ContactCryptoDto.class);

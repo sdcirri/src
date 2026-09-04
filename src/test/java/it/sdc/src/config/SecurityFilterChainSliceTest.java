@@ -13,7 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
+import it.sdc.src.service.AuthCookieService;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
@@ -30,6 +31,8 @@ import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @WebMvcTest(controllers = { AuthController.class, ChatController.class })
 @Import(SecurityConfig.class)
@@ -74,6 +77,7 @@ public class SecurityFilterChainSliceTest {
 
         mockMvc.perform(
                 post("/auth/login")
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new LoginRequest("user", USER_PASSWORD)))
         ).andExpect(status().is2xxSuccessful());
@@ -96,7 +100,7 @@ public class SecurityFilterChainSliceTest {
     void protectedEndpoint_withValidAccessToken_isAuthorized() throws Exception {
         when(accessTokenIntrospector.introspect("good-token")).thenReturn(mockPrincipal());
 
-        mockMvc.perform(get("/chats").header(HttpHeaders.AUTHORIZATION, "Bearer good-token"))
+        mockMvc.perform(get("/chats").cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, "good-token")))
                 .andExpect(status().isOk());
     }
 
@@ -104,7 +108,7 @@ public class SecurityFilterChainSliceTest {
     void refreshEndpoint_usesRefreshIntrospector_notAccessIntrospector() throws Exception {
         when(refreshTokenIntrospector.introspect("refresh-token")).thenReturn(mockPrincipal());
 
-        mockMvc.perform(post("/auth/refresh").header(HttpHeaders.AUTHORIZATION, "Bearer refresh-token"))
+        mockMvc.perform(post("/auth/refresh").with(csrf()).cookie(new Cookie(AuthCookieService.REFRESH_COOKIE_NAME, "refresh-token")))
                 .andExpect(status().isOk());
 
         verifyNoInteractions(accessTokenIntrospector); // proves chain isolation via securityMatcher
@@ -114,6 +118,7 @@ public class SecurityFilterChainSliceTest {
     void csrfIsDisabled_postWithoutCsrfToken_doesNotReturn403() throws Exception {
         mockMvc.perform(
                 post("/auth/register")
+                        .with(csrf())
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new UserRegistrationRequest("user", null, USER_PASSWORD)
