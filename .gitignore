@@ -31,5 +31,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-webui/src-frontend/coverage
