@@ -37,6 +37,14 @@ public class AuthController {
         return sessionResponse(session, HttpStatus.NO_CONTENT);
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal UserPrincipal user) {
+        return ResponseEntity.status(HttpStatus.NO_CONTENT)
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearAccessCookie().toString())
+                .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefreshCookie().toString())
+                .build();
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<Void> refreshSession(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         UserSessionDto session = authService.refreshAccessToken(userPrincipal.getRefreshToken());

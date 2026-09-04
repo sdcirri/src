@@ -32,6 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -192,6 +193,44 @@ public class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(nullUsername))
         ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void logout_shouldClearCookies_whenAuthenticated() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        MvcResult result = mockMvc.perform(
+                        post("/auth/logout")
+                                .with(csrf())
+                                .cookie(mockAccessCookie(session))
+                                .contentType(MediaType.APPLICATION_JSON)
+                ).andExpect(status().isNoContent())
+                .andExpect(header().exists("Set-Cookie"))
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString()).isEmpty();
+        List<String> headers = setCookieHeaders(result);
+        assertThat(headers).hasSizeGreaterThanOrEqualTo(2);
+
+        assertThat(headers.stream().anyMatch(h ->
+                h.startsWith(AuthCookieService.ACCESS_COOKIE_NAME + "=") && h.contains("Max-Age=0"))
+        ).isTrue();
+        assertThat(headers.stream().anyMatch(h ->
+                h.startsWith(AuthCookieService.REFRESH_COOKIE_NAME + "=") && h.contains("Max-Age=0"))
+        ).isTrue();
+    }
+
+    @Test
+    void logout_shouldReturn401_whenUnauthenticated() throws Exception {
+        mockMvc.perform(
+                post("/auth/logout")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isUnauthorized());
     }
 
     @Test
