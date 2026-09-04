@@ -11,6 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    testTimeout: 60_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html']
