@@ -10,6 +10,16 @@ function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
     return buf;
 }
 
+
+export function fromBase64(b64: string): Uint8Array {
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+}
+
+export function toBase64(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes));
+}
+
+
 export async function aesEncrypt(key: Uint8Array, plaintext: Uint8Array): Promise<AesCrypto> {
     const cryptoKey = await crypto.subtle.importKey(
         'raw', toArrayBuffer(key), { name: 'AES-GCM' }, false, ['encrypt']

@@ -1,8 +1,8 @@
 import { argon2id } from '@noble/hashes/argon2.js';
 
+import { type AesCrypto, aesDecrypt, aesEncrypt, fromBase64, toBase64 } from '@/crypto/common.ts';
 import type { UserCryptoDto, UserRegistrationFinalizationRequest } from '@/api/types.ts';
-import { type AesCrypto, aesDecrypt, aesEncrypt } from '@/crypto/common.ts';
-import { generateKeyMaterial } from "@/crypto/keys.ts";
+import { generateKeyMaterial } from '@/crypto/keys.ts';
 
 export type DecryptedCryptoSpecs = {
     privateEd25519: Uint8Array;
@@ -10,14 +10,6 @@ export type DecryptedCryptoSpecs = {
     privateX25519: Uint8Array;
     publicX25519: Uint8Array;
 };
-
-function fromBase64(b64: string): Uint8Array {
-    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-}
-
-function toBase64(bytes: Uint8Array): string {
-    return btoa(String.fromCharCode(...bytes));
-}
 
 function argon2idForKek(password: string, salt: Uint8Array): Uint8Array {
     return argon2id(password as string, salt, { t: 3, m: 65536, p: 4, dkLen: 32 });

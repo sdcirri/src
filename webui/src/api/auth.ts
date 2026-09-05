@@ -1,4 +1,4 @@
-import type {LoginRequest, PasswordChangeRequest, UserCryptoDto, UserRegistrationRequest} from '@/api/types.ts';
+import type { LoginRequest, PasswordChangeRequest, UserCryptoDto, UserRegistrationRequest } from '@/api/types.ts';
 import { request } from '@/api/client.ts';
 import { bootstrapUserCrypto, reEncryptSpecs } from '@/crypto/kek.ts';
 
