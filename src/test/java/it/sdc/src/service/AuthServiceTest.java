@@ -110,6 +110,66 @@ public class AuthServiceTest {
     }
 
     @Test
+    void login_regeneratesTokensWhenAccessAndRefreshCollide() throws NoSuchAlgorithmException {
+        SecureRandom collidingRandom = mock(SecureRandom.class);
+        java.util.concurrent.atomic.AtomicInteger nextBytesCalls = new java.util.concurrent.atomic.AtomicInteger();
+
+        doAnswer(invocation -> {
+            byte[] buffer = invocation.getArgument(0);
+            int call = nextBytesCalls.getAndIncrement();
+            if (call < 2) {
+                Arrays.fill(buffer, (byte) 7);
+            } else if (call == 2) {
+                Arrays.fill(buffer, (byte) 1);
+            } else {
+                Arrays.fill(buffer, (byte) 2);
+            }
+            return null;
+        }).when(collidingRandom).nextBytes(any(byte[].class));
+
+        AuthService service = new AuthService(
+                passwordEncoder,
+                collidingRandom,
+                MessageDigest.getInstance("SHA-512"),
+                userSessionRepository,
+                userCryptoRepository,
+                userRepository,
+                new UserCryptoMapper(),
+                tokenIntrospectionCache,
+                authProperties()
+        );
+
+        UserDB user = mock(UserDB.class);
+        when(user.getPasswordHash()).thenReturn("passwordHash");
+        when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
+        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
+            UserSessionDB session = invocation.getArgument(0);
+            return UserSessionDB.builder()
+                    .id(UUID.randomUUID())
+                    .user(session.getUser())
+                    .accessToken(session.getAccessToken())
+                    .accessTokenExpires(session.getAccessTokenExpires())
+                    .refreshToken(session.getRefreshToken())
+                    .refreshTokenExpires(session.getRefreshTokenExpires())
+                    .build();
+        });
+
+        UserSessionDto result = service.login("username", "password");
+
+        assertThat(result.accessToken()).isNotBlank();
+        assertThat(result.refreshToken()).isNotBlank();
+        verify(collidingRandom, atLeast(4)).nextBytes(any(byte[].class));
+    }
+
+    private AuthProperties authProperties() {
+        AuthProperties authProperties = new AuthProperties();
+        authProperties.setAccessTokenValiditySeconds(3600);
+        authProperties.setRefreshTokenValiditySeconds(3600);
+        return authProperties;
+    }
+
+    @Test
     void login_shouldFailOnBadCredentials() {
         UserDB user = mock(UserDB.class);
         when(user.getPasswordHash()).thenReturn("passwordHash");
@@ -293,7 +353,7 @@ public class AuthServiceTest {
         UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
 
         List<UserSessionDB> userSessions = new ArrayList<>(List.of(mock(UserSessionDB.class), mock(UserSessionDB.class)));
-        when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(_ -> new ArrayList<>(userSessions));
+        when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(invocation -> new ArrayList<>(userSessions));
 
         doAnswer(invocation -> {
             userSessions.removeAll(invocation.getArgument(0));

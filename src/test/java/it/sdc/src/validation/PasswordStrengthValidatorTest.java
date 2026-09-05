@@ -13,6 +13,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -26,6 +27,11 @@ public class PasswordStrengthValidatorTest {
         pwnClient = mock(HttpClient.class);
         stubHibpResponse(pwnClient, "");
         validator = new PasswordStrengthValidator(pwnClient);
+    }
+
+    @Test
+    void isValid_shouldAcceptNull() {
+        assertThat(validator.isValid(null, null)).isTrue();
     }
 
     @Test
@@ -82,6 +88,18 @@ public class PasswordStrengthValidatorTest {
     void isValid_shouldAcceptWhenHIBPUnreachable() throws IOException, InterruptedException {
         when(pwnClient.send(any(), any())).thenThrow(new IOException("HIBP Down!"));
         assertThat(validator.isValid("Str0ng&UnPW3d!!!!", null)).isTrue();
+    }
+
+    @Test
+    void isValid_throwsWhenSha1Unavailable() {
+        try (var messageDigest = mockStatic(MessageDigest.class)) {
+            messageDigest.when(() -> MessageDigest.getInstance("SHA-1"))
+                    .thenThrow(new NoSuchAlgorithmException("SHA-1"));
+
+            assertThatThrownBy(() -> validator.isValid("Str0ng&UnPW3d!!!!", null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("SHA-1 algorithm not supported");
+        }
     }
 
     @SuppressWarnings("unchecked")
