@@ -11,7 +11,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,7 +20,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.security.SecureRandom;
 import java.util.List;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -38,11 +36,6 @@ public class SecurityConfig {
     private final CookieBearerTokenResolver cookieRefreshTokenResolver = new CookieBearerTokenResolver(AuthCookieService.REFRESH_COOKIE_NAME);
 
     private final AppCorsProperties appCorsProperties;
-
-    @Bean
-    public SecureRandom secureRandom() {
-        return new SecureRandom();
-    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {

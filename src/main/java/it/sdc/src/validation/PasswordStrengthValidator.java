@@ -64,13 +64,15 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
      * @return whether the password was involved in a data breach
      */
     private boolean isPwned(String password) {
-        String sha1 = "";
+        String sha1;
         try {
             byte[] hash = MessageDigest.getInstance("SHA-1").digest(password.getBytes(StandardCharsets.UTF_8));
             sha1 = HexFormat.of().withUpperCase().formatHex(hash);
         }
         // Impossible on compliant JDK
-        catch (NoSuchAlgorithmException ignored) {}
+        catch (NoSuchAlgorithmException ignored) {
+            throw new IllegalStateException("SHA-1 algorithm not supported");
+        }
 
         String prefix = sha1.substring(0, 5), response;
         try {

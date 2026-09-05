@@ -19,7 +19,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
-import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -64,14 +63,11 @@ public class SecurityFilterChainSliceTest {
     ChatService chatService;
 
     private static UserPrincipal mockPrincipal() {
-        byte[] refreshToken = new byte[32];
-        (new SecureRandom()).nextBytes(refreshToken);
-
         return new UserPrincipal(
+                UUID.randomUUID(),
                 UUID.randomUUID(),
                 "user",
                 Instant.now().plusSeconds(10000),
-                refreshToken,
                 Instant.now().plusSeconds(10000)
         );
     }
@@ -118,7 +114,7 @@ public class SecurityFilterChainSliceTest {
     @Test
     void refreshEndpoint_usesRefreshIntrospector_notAccessIntrospector() throws Exception {
         when(refreshTokenIntrospector.introspect("refresh-token")).thenReturn(mockPrincipal());
-        when(authService.refreshAccessToken(any(byte[].class))).thenReturn(mockSessionDto());
+        when(authService.refreshAccessToken(any(UUID.class))).thenReturn(mockSessionDto());
         when(authCookieService.buildAccessCookie(anyString()))
                 .thenReturn(ResponseCookie.from("accessToken", "token").build());
         when(authCookieService.buildRefreshCookie(anyString()))

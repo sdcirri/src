@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 import org.springframework.stereotype.Component;
 
+import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -17,6 +18,7 @@ import java.util.Collection;
 @RequiredArgsConstructor
 public class TokenIntrospectionCache {
     private final UserSessionDBRepository sessionRepository;
+    private final MessageDigest sha512;
 
     private final Cache<String, UserPrincipal> accessCache = Caffeine.newBuilder()
             .maximumSize(10_000)
@@ -39,9 +41,9 @@ public class TokenIntrospectionCache {
     private static UserPrincipal fromSession(UserSessionDB session) {
         return new UserPrincipal(
                 session.getUser().getId(),
+                session.getId(),
                 session.getUser().getUsername(),
                 session.getAccessTokenExpires(),
-                session.getRefreshToken(),
                 session.getRefreshTokenExpires()
         );
     }
@@ -75,7 +77,7 @@ public class TokenIntrospectionCache {
 
     private UserPrincipal loadAccess(String bearerToken) {
         byte[] decoded = decodeToken(bearerToken);
-        UserSessionDB session = sessionRepository.findByAccessToken(decoded)
+        UserSessionDB session = sessionRepository.findByAccessToken(sha512.digest(decoded))
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getAccessTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
@@ -84,7 +86,7 @@ public class TokenIntrospectionCache {
 
     private UserPrincipal loadRefresh(String bearerToken) {
         byte[] decoded = decodeToken(bearerToken);
-        UserSessionDB session = sessionRepository.findByRefreshToken(decoded)
+        UserSessionDB session = sessionRepository.findByRefreshToken(sha512.digest(decoded))
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getRefreshTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");

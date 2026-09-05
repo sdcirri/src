@@ -47,7 +47,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refreshSession(@AuthenticationPrincipal UserPrincipal userPrincipal) {
-        UserSessionDto session = authService.refreshAccessToken(userPrincipal.getRefreshToken());
+        UserSessionDto session = authService.refreshAccessToken(userPrincipal.getSessionId());
         return sessionResponse(session, HttpStatus.NO_CONTENT);
     }
 

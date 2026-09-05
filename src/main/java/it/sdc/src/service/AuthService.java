@@ -15,30 +15,27 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
-import it.sdc.src.service.mapping.UserSessionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom;
+    private final MessageDigest sha512;
 
     private final UserSessionDBRepository userSessionRepository;
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
 
-    private final UserSessionMapper userSessionMapper;
     private final UserCryptoMapper userCryptoMapper;
 
     private final TokenIntrospectionCache tokenIntrospectionCache;
@@ -62,17 +59,27 @@ public class AuthService {
     /**
      * Generate a new session for the user
      * @param user user
-     * @return a new session for the user
+     * @return the plain session tokens
      */
-    private UserSessionDB yieldSession(UserDB user) {
+    private UserSessionDto yieldSession(UserDB user) {
         byte[][] tokens = yieldTokens();
-        return userSessionRepository.save(UserSessionDB.builder()
+        Instant now = Instant.now();
+        Instant accessExp = now.plusSeconds(authProperties.getAccessTokenValiditySeconds());
+        Instant refreshExp = now.plusSeconds(authProperties.getRefreshTokenValiditySeconds());
+        userSessionRepository.save(UserSessionDB.builder()
                 .user(user)
-                .accessToken(tokens[0])
-                .accessTokenExpires(Instant.now().plusSeconds(authProperties.getAccessTokenValiditySeconds()))
-                .refreshToken(tokens[1])
-                .refreshTokenExpires(Instant.now().plusSeconds(authProperties.getRefreshTokenValiditySeconds()))
+                .accessToken(sha512.digest(tokens[0]))
+                .accessTokenExpires(accessExp)
+                .refreshToken(sha512.digest(tokens[1]))
+                .refreshTokenExpires(refreshExp)
                 .build()
+        );
+        return new UserSessionDto(
+                user.getId(),
+                Base64.getEncoder().encodeToString(tokens[0]),
+                accessExp.toEpochMilli(),
+                Base64.getEncoder().encodeToString(tokens[1]),
+                refreshExp.toEpochMilli()
         );
     }
 
@@ -90,27 +97,25 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPasswordHash()))
             throw new LoginFailedException("Invalid password");
 
-        UserSessionDB newSession = yieldSession(user);
-        return userSessionMapper.toDto(newSession);
+        return yieldSession(user);
     }
 
     /**
      * Refresh a user session
-     * @param refreshToken current refresh token
+     * @param sessionId session ID
      * @return a new user session
      * @throws LoginFailedException on bad refresh token
      */
     @Transactional
-    public UserSessionDto refreshAccessToken(byte[] refreshToken) {
-        UserSessionDB session = userSessionRepository.findByRefreshToken(refreshToken)
+    public UserSessionDto refreshAccessToken(UUID sessionId) {
+        UserSessionDB session = userSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
         if(Instant.now().isAfter(session.getRefreshTokenExpires()))
             throw new LoginFailedException("Invalid refresh token");
 
         tokenIntrospectionCache.evict(session);
         userSessionRepository.delete(session);
-        UserSessionDB newSession = yieldSession(session.getUser());
-        return userSessionMapper.toDto(newSession);
+        return yieldSession(session.getUser());
     }
 
     /**
@@ -131,8 +136,7 @@ public class AuthService {
                 .build();
 
         newUser = userRepository.save(newUser);
-        UserSessionDB newSession = yieldSession(newUser);
-        return userSessionMapper.toDto(newSession);
+        return yieldSession(newUser);
     }
 
     /**
@@ -194,10 +198,10 @@ public class AuthService {
         userRepository.save(user);
 
         List<UserSessionDB> oldSessions = userSessionRepository.findAllByUser_Id(user.getId());
-        UserSessionDB newSession = yieldSession(user);
+        UserSessionDto newSession = yieldSession(user);
 
         tokenIntrospectionCache.evictAll(oldSessions);
         userSessionRepository.deleteAll(oldSessions);
-        return userSessionMapper.toDto(newSession);
+        return newSession;
     }
 }

@@ -254,7 +254,7 @@ public class AuthControllerIntegrationTest {
         assertThat(result.getResponse().getContentAsString()).isEmpty();
         assertAuthSessionCookies(result);
 
-        String oldRefreshToken = ENCODER.encodeToString(userSession.getRefreshToken());
+        String oldRefreshToken = encodedPlainRefreshToken(userSession);
         String newRefreshToken = findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow();
         assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
     }
@@ -434,7 +434,7 @@ public class AuthControllerIntegrationTest {
         for (int i = 0; i < 10; i++)
             sessionRepository.save(mockSession(user));
         UserSessionDB session = sessionRepository.save(mockSession(user));
-        String oldRefreshToken = ENCODER.encodeToString(session.getRefreshToken());
+        String oldRefreshToken = encodedPlainRefreshToken(session);
 
         cryptoRepository.save(mockUserCryptoDBSpecs(user));
 

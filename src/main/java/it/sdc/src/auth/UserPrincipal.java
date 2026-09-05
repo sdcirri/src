@@ -10,18 +10,17 @@ import java.util.*;
 
 @Getter
 public class UserPrincipal implements OAuth2AuthenticatedPrincipal {
-    private final UUID userId;
+    private final UUID userId, sessionId;
     private final String username;
     private final Instant validUntil, refreshTokenValidUntil;
-    private final byte[] refreshToken;
     private final Map<String, Object> attributes;
 
-    public UserPrincipal(UUID userId, String username, Instant validUntil, byte[] refreshToken, Instant refreshTokenValidUntil) {
+    public UserPrincipal(UUID userId, UUID sessionId, String username, Instant validUntil, Instant refreshTokenValidUntil) {
         this.userId = Objects.requireNonNull(userId);
+        this.sessionId = Objects.requireNonNull(sessionId);
         this.username = Objects.requireNonNull(username);
         this.validUntil = Objects.requireNonNull(validUntil);
         this.refreshTokenValidUntil = Objects.requireNonNull(refreshTokenValidUntil);
-        this.refreshToken = Objects.requireNonNull(refreshToken);
         this.attributes = Map.of(
                 "userId",     userId,
                 "username",   username,

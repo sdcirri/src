@@ -15,7 +15,6 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
-import it.sdc.src.service.mapping.UserSessionMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +22,8 @@ import org.mockito.ArgumentMatchers;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
@@ -38,21 +39,22 @@ public class AuthServiceTest {
     private UserSessionDBRepository userSessionRepository;
     private UserCryptoDBRepository userCryptoRepository;
     private UserDBRepository userRepository;
+    private TokenIntrospectionCache tokenIntrospectionCache;
 
     private AuthService authService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws NoSuchAlgorithmException {
         passwordEncoder = mock(Argon2PasswordEncoder.class);
         secureRandom = new SecureRandom();
+        MessageDigest sha512 = MessageDigest.getInstance("SHA-512");
 
-        UserSessionMapper userSessionMapper = new UserSessionMapper();
         UserCryptoMapper userCryptoMapper = new UserCryptoMapper();
 
         userSessionRepository = mock(UserSessionDBRepository.class);
         userCryptoRepository = mock(UserCryptoDBRepository.class);
         userRepository = mock(UserDBRepository.class);
-        TokenIntrospectionCache tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
+        tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
 
         AuthProperties authProperties = new AuthProperties();
         authProperties.setAccessTokenValiditySeconds(3600);
@@ -61,10 +63,10 @@ public class AuthServiceTest {
         authService = new AuthService(
                 passwordEncoder,
                 secureRandom,
+                sha512,
                 userSessionRepository,
                 userCryptoRepository,
                 userRepository,
-                userSessionMapper,
                 userCryptoMapper,
                 tokenIntrospectionCache,
                 authProperties
@@ -99,8 +101,8 @@ public class AuthServiceTest {
 
         UserSessionDB saved = captor.getValue();
         assertThat(saved.getUser()).isSameAs(user);
-        assertThat(saved.getAccessToken()).hasSize(32);
-        assertThat(saved.getRefreshToken()).hasSize(32);
+        assertThat(saved.getAccessToken()).hasSize(64);
+        assertThat(saved.getRefreshToken()).hasSize(64);
         assertThat(saved.getAccessTokenExpires()).isAfter(Instant.now());
 
         assertThat(result.accessToken()).isNotBlank();
@@ -176,8 +178,8 @@ public class AuthServiceTest {
         assertThat(savedSession.getUser().getPasswordHash()).isEqualTo(savedUser.getPasswordHash());
         assertThat(savedSession.getUser().getDisplayName()).isEqualTo(savedUser.getDisplayName());
 
-        assertThat(savedSession.getAccessToken()).hasSize(32);
-        assertThat(savedSession.getRefreshToken()).hasSize(32);
+        assertThat(savedSession.getAccessToken()).hasSize(64);
+        assertThat(savedSession.getRefreshToken()).hasSize(64);
 
         assertThat(result.accessToken()).isNotBlank();
         assertThat(result.refreshToken()).isNotBlank();
@@ -337,8 +339,8 @@ public class AuthServiceTest {
         UserSessionDB createdSession = sessionCaptor.getValue();
 
         assertThat(createdSession.getUser()).isSameAs(user);
-        assertThat(createdSession.getAccessToken()).hasSize(32);
-        assertThat(createdSession.getRefreshToken()).hasSize(32);
+        assertThat(createdSession.getAccessToken()).hasSize(64);
+        assertThat(createdSession.getRefreshToken()).hasSize(64);
         assertThat(createdSession.getAccessTokenExpires()).isAfter(Instant.now());
 
         assertThat(result.accessToken()).isNotBlank();
@@ -370,12 +372,13 @@ public class AuthServiceTest {
 
     @Test
     void refreshAccessToken_yieldsValidAccessToken() {
-        byte[] refreshToken = new byte[32];
-        secureRandom.nextBytes(refreshToken);
+        UUID sessionId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
 
         UserSessionDB userSession = mock(UserSessionDB.class);
         when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().plusSeconds(10000));
-        when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.of(userSession));
+        when(userSession.getUser()).thenReturn(user);
+        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(userSession));
         when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
             UserSessionDB session = invocation.getArgument(0);
             return UserSessionDB.builder()
@@ -388,44 +391,33 @@ public class AuthServiceTest {
                     .build();
         });
 
-        UserSessionDto result = authService.refreshAccessToken(refreshToken);
+        UserSessionDto result = authService.refreshAccessToken(sessionId);
         assertThat(result.accessToken()).isNotBlank();
         assertThat(result.refreshToken()).isNotBlank();
         assertThat(result.accessTokenExpires() > Instant.now().toEpochMilli()).isTrue();
         assertThat(result.refreshTokenExpires() > Instant.now().toEpochMilli()).isTrue();
+        verify(tokenIntrospectionCache).evict(userSession);
+        verify(userSessionRepository).delete(userSession);
     }
 
     @Test
     void refreshAccessToken_rejectsExpiredRefreshToken() {
-        byte[] refreshToken = new byte[32];
-        secureRandom.nextBytes(refreshToken);
+        UUID sessionId = UUID.randomUUID();
 
         UserSessionDB userSession = mock(UserSessionDB.class);
         when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().minusSeconds(1));
-        when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.of(userSession));
-        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
-            UserSessionDB session = invocation.getArgument(0);
-            return UserSessionDB.builder()
-                    .id(UUID.randomUUID())
-                    .user(session.getUser())
-                    .accessToken(session.getAccessToken())
-                    .accessTokenExpires(session.getAccessTokenExpires())
-                    .refreshToken(session.getRefreshToken())
-                    .refreshTokenExpires(session.getRefreshTokenExpires())
-                    .build();
-        });
+        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(userSession));
 
-        assertThatThrownBy(() -> authService.refreshAccessToken(refreshToken))
+        assertThatThrownBy(() -> authService.refreshAccessToken(sessionId))
                 .isInstanceOf(LoginFailedException.class);
     }
 
     @Test
     void refreshAccessToken_rejectsInvalidRefreshToken() {
-        byte[] refreshToken = new byte[32];
-        secureRandom.nextBytes(refreshToken);
+        UUID sessionId = UUID.randomUUID();
 
-        when(userSessionRepository.findByRefreshToken(refreshToken)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> authService.refreshAccessToken(refreshToken))
+        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> authService.refreshAccessToken(sessionId))
                 .isInstanceOf(LoginFailedException.class);
     }
 }

@@ -43,9 +43,9 @@ public class GlobalExceptionHandlerSliceTest {
     void should404onNoResourceFoundException() throws Exception {
         UserPrincipal principal = new UserPrincipal(
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 "user",
                 Instant.now().plusSeconds(10000),
-                new byte[] {1, 2, 3},
                 Instant.now().plusSeconds(10000)
         );
         OAuth2AccessToken accessToken = new OAuth2AccessToken(
