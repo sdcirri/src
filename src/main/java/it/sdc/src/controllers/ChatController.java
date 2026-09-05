@@ -6,6 +6,9 @@ import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.ChatService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,9 +33,11 @@ public class ChatController {
     @GetMapping("/{contactId}")
     public List<MessageDto> getMessageHistory(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable UUID contactId
+            @PathVariable UUID contactId,
+            @RequestParam("n") @Min(1) @Max(20) Integer pageSize,
+            @RequestParam("p") @PositiveOrZero Integer pageNumber
     ) {
-        return chatService.getMessages(userPrincipal.getUserId(), contactId);
+        return chatService.getMessages(userPrincipal.getUserId(), contactId, pageNumber, pageSize);
     }
 
     @PostMapping("/{contactId}")

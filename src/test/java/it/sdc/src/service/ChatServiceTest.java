@@ -16,13 +16,17 @@ import it.sdc.src.service.mapping.MessageMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.springframework.data.domain.Pageable;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class ChatServiceTest {
@@ -48,7 +52,7 @@ class ChatServiceTest {
             MessageDB message = MessageDB.builder()
                     .id(UUID.randomUUID())
                     .chat(chat)
-                    .timestamp(Instant.now())
+                    .timestamp(Instant.EPOCH.plus(i, ChronoUnit.SECONDS))
                     .iv("iv".getBytes(StandardCharsets.UTF_8))
                     .data("data".getBytes(StandardCharsets.UTF_8))
                     .sender(i % 2 == 0 ? user1 : user2)
@@ -233,15 +237,17 @@ class ChatServiceTest {
     void getMessages_shouldReturnAllMessagesAndIsMirrored() {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000099");
         UserDB myUser = mock(UserDB.class), contactUser = mock(UserDB.class);
         when(myUser.getId()).thenReturn(myUserId);
         when(contactUser.getId()).thenReturn(contactId);
-        when(userRepository.findById(myUserId)).thenReturn(Optional.of(myUser));
-        when(userRepository.findById(contactId)).thenReturn(Optional.of(contactUser));
 
         ChatDB chat = mock(ChatDB.class);
-        when(chat.getMessages()).thenReturn(mockMessageHistory(chat, myUser, contactUser));
+        when(chat.getId()).thenReturn(chatId);
+        List<MessageDB> messages = mockMessageHistory(chat, myUser, contactUser);
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(messages);
         when(messageMapper.toDto(any(MessageDB.class), any(UUID.class))).thenAnswer(invocation -> {
             MessageDB message = (MessageDB) invocation.getArguments()[0];
             UUID userId = (UUID) invocation.getArguments()[1];
@@ -253,9 +259,73 @@ class ChatServiceTest {
             );
         });
 
-        List<MessageDto> result1 = chatService.getMessages(myUserId, contactId);
-        List<MessageDto> result2 = chatService.getMessages(contactId, myUserId);
+        List<MessageDto> result1 = chatService.getMessages(myUserId, contactId, 0, 20);
+        List<MessageDto> result2 = chatService.getMessages(contactId, myUserId, 0, 20);
         assertThat(specularHistories(result1, result2)).isTrue();
+    }
+
+    @Test
+    void getMessages_shouldUseDefaultPagination_whenPageParamsAreNull() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+
+        ChatDB chat = mock(ChatDB.class);
+        when(chat.getId()).thenReturn(chatId);
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(List.of());
+
+        chatService.getMessages(myUserId, contactId, null, null);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findByChatIdOrderByTimestampDesc(eq(chatId), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+    }
+
+    @Test
+    void getMessages_shouldPassCustomPageRequestToRepository() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+
+        ChatDB chat = mock(ChatDB.class);
+        when(chat.getId()).thenReturn(chatId);
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(List.of());
+
+        chatService.getMessages(myUserId, contactId, 2, 5);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findByChatIdOrderByTimestampDesc(eq(chatId), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
+    }
+
+    @Test
+    void getMessages_shouldReturnOnlyMessagesFromRepositoryPage() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+        UserDB myUser = mock(UserDB.class), contactUser = mock(UserDB.class);
+        when(myUser.getId()).thenReturn(myUserId);
+        when(contactUser.getId()).thenReturn(contactId);
+
+        ChatDB chat = mock(ChatDB.class);
+        when(chat.getId()).thenReturn(chatId);
+        List<MessageDB> allMessages = mockMessageHistory(chat, myUser, contactUser);
+        List<MessageDB> pageMessages = allMessages.subList(0, 3);
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(pageMessages);
+        when(messageMapper.toDto(any(MessageDB.class), eq(myUserId))).thenReturn(mock(MessageDto.class));
+
+        List<MessageDto> result = chatService.getMessages(myUserId, contactId, 1, 3);
+
+        assertThat(result).hasSize(3);
+        verify(messageMapper, times(3)).toDto(any(MessageDB.class), eq(myUserId));
     }
 
     @Test
@@ -266,7 +336,9 @@ class ChatServiceTest {
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> chatService.getMessages(myUserId, contactId))
+        assertThatThrownBy(() -> chatService.getMessages(myUserId, contactId, 0, 20))
                 .isInstanceOf(ChatNotFoundException.class);
+
+        verify(messageRepository, never()).findByChatIdOrderByTimestampDesc(any(), any());
     }
 }

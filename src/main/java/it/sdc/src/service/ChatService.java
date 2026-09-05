@@ -15,6 +15,7 @@ import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -96,13 +97,18 @@ public class ChatService {
      * @param contactUserId contact user ID
      * @return the messaging history between the two users
      */
-    public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId) {
+    public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId, Integer pageNumber, Integer pageSize) {
         UUID user1Id = myUserId.toString().compareTo(contactUserId.toString()) < 0 ? myUserId : contactUserId;
         UUID user2Id = myUserId.toString().equals(user1Id.toString()) ? contactUserId : myUserId;
         ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
                 () -> new ChatNotFoundException("Chat not found")
         );
-        return chat.getMessages().stream()
+
+        if (pageSize == null) pageSize = 20;
+        if (pageNumber == null) pageNumber = 0;
+
+        return messageRepository.findByChatIdOrderByTimestampDesc(chat.getId(), PageRequest.of(pageNumber, pageSize))
+                .stream()
                 .map(msg -> messageMapper.toDto(msg, myUserId))
                 .toList();
     }

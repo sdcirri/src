@@ -111,6 +111,27 @@ public class ChatControllerIntegrationTest {
         return messages;
     }
 
+    private List<MessageDB> mockMessageHistoryWithDistinctTimestamps(ChatDB chat, int len) {
+        List<MessageDB> messages = new ArrayList<>();
+        for (int i = 0; i < len; i++) {
+            byte[] iv = new byte[16], data = new byte[128];
+            secureRandom.nextBytes(iv);
+            secureRandom.nextBytes(data);
+
+            messages.add(messageRepository.save(
+                    MessageDB.builder()
+                            .iv(iv)
+                            .data(data)
+                            .sender(secureRandom.nextBoolean() ? chat.getUser1() : chat.getUser2())
+                            .timestamp(Instant.EPOCH.plus(i, ChronoUnit.SECONDS))
+                            .chat(chat)
+                            .build()
+            ));
+        }
+
+        return messages;
+    }
+
     private static ChatDB mockChat(UserDB user1, UserDB user2) {
         // Ensures user order (`.toString()` enforces SQL ordering)
         return ChatDB.builder()
@@ -199,12 +220,15 @@ public class ChatControllerIntegrationTest {
         UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
         ChatDB chat = chatRepository.save(mockChat(user1, user2));
-        List<MessageDto> expected = mockMessageHistory(chat, 10).stream()
+        List<MessageDto> expected = mockMessageHistoryWithDistinctTimestamps(chat, 10).stream()
+                .sorted(Comparator.comparing(MessageDB::getTimestamp).reversed())
                 .map(msg -> messageMapper.toDto(msg, user1.getId()))
                 .toList();
 
         MvcResult result = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
+                        .param("n", "20")
+                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -215,6 +239,87 @@ public class ChatControllerIntegrationTest {
         );
 
         assertThat(history).isEqualTo(expected);
+    }
+
+    @Test
+    void getMessageHistory_shouldPaginateResults() throws Exception {
+        cleanupDb();
+
+        UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
+        UserSessionDB session = sessionRepository.save(mockSession(user1));
+        ChatDB chat = chatRepository.save(mockChat(user1, user2));
+        List<MessageDB> messages = mockMessageHistoryWithDistinctTimestamps(chat, 25);
+        List<MessageDto> newestFirst = messages.stream()
+                .sorted(Comparator.comparing(MessageDB::getTimestamp).reversed())
+                .map(msg -> messageMapper.toDto(msg, user1.getId()))
+                .toList();
+
+        MvcResult firstPage = mockMvc.perform(
+                get("/chats/{contactId}", user2.getId())
+                        .param("n", "10")
+                        .param("p", "0")
+                        .cookie(mockAccessCookie(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+        List<MessageDto> page0 = objectMapper.readValue(
+                firstPage.getResponse().getContentAsString(),
+                new TypeReference<>() {}
+        );
+
+        MvcResult secondPage = mockMvc.perform(
+                get("/chats/{contactId}", user2.getId())
+                        .param("n", "10")
+                        .param("p", "1")
+                        .cookie(mockAccessCookie(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+        List<MessageDto> page1 = objectMapper.readValue(
+                secondPage.getResponse().getContentAsString(),
+                new TypeReference<>() {}
+        );
+
+        MvcResult thirdPage = mockMvc.perform(
+                get("/chats/{contactId}", user2.getId())
+                        .param("n", "10")
+                        .param("p", "2")
+                        .cookie(mockAccessCookie(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isOk()).andReturn();
+        List<MessageDto> page2 = objectMapper.readValue(
+                thirdPage.getResponse().getContentAsString(),
+                new TypeReference<>() {}
+        );
+
+        assertThat(page0).hasSize(10).isEqualTo(newestFirst.subList(0, 10));
+        assertThat(page1).hasSize(10).isEqualTo(newestFirst.subList(10, 20));
+        assertThat(page2).hasSize(5).isEqualTo(newestFirst.subList(20, 25));
+    }
+
+    @Test
+    void getMessageHistory_shouldRejectInvalidPaginationParams() throws Exception {
+        cleanupDb();
+
+        UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
+        UserSessionDB session = sessionRepository.save(mockSession(user1));
+        chatRepository.save(mockChat(user1, user2));
+
+        mockMvc.perform(
+                get("/chats/{contactId}", user2.getId())
+                        .param("n", "0")
+                        .param("p", "0")
+                        .cookie(mockAccessCookie(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isBadRequest());
+
+        mockMvc.perform(
+                get("/chats/{contactId}", user2.getId())
+                        .param("n", "10")
+                        .param("p", "-1")
+                        .cookie(mockAccessCookie(session))
+                        .accept(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isBadRequest());
     }
 
     @Test
@@ -233,6 +338,8 @@ public class ChatControllerIntegrationTest {
 
         mockMvc.perform(
                 get("/chats/{contactId}", UUID.randomUUID())
+                        .param("n", "10")
+                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isNotFound());
