@@ -1,13 +1,13 @@
+
 .center {
     text-align: center;
+    justify-content: center;
+    align-items: center;
 }
 
-.form {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    background: white;
-    border-radius: 5px;
+.spinner {
+    width: 90%;
+    height: 90%;
 }
 
 html, body, #root {

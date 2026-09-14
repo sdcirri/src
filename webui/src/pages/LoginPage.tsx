@@ -1,14 +1,19 @@
+import { Link } from 'react-router';
+
+import '@/css/forms.css';
+import '@/css/main.css';
 
 function LoginPage() {
     return (
-        <div className='center'>
+        <div id='root-container' className='center'>
             <form id='login-form' className='form center'>
                 <h4>Login</h4>
                 <label htmlFor='username'>Username</label>
-                <input type='text' name='username' placeholder='Username' />
+                <input id='username' type='text' name='username' placeholder='Username' />
                 <label htmlFor='password'>Password</label>
-                <input type='password' name='password' placeholder='Password' />
+                <input id='password' type='password' name='password' placeholder='Password' />
                 <button type='submit'>Login</button>
+                <Link to='/register'>New here? Register!</Link>
             </form>
         </div>
     )

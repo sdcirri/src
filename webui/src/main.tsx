@@ -1,13 +1,16 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router';
+import { StrictMode } from 'react';
 
 import App from '@/App.tsx'
-import { SessionProvider } from '@/SessionContext.tsx';
+import { SessionProvider } from '@/session/SessionProvider.tsx';
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
-        <SessionProvider>
-            <App />
-        </SessionProvider>
+        <BrowserRouter>
+            <SessionProvider>
+                <App />
+            </SessionProvider>
+        </BrowserRouter>
     </StrictMode>,
 )
