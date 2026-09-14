@@ -1,5 +1,6 @@
 package it.sdc.src.service;
 
+import it.sdc.src.config.ApiProperties;
 import it.sdc.src.config.AuthProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
@@ -12,6 +13,7 @@ public class AuthCookieService {
     public static final String REFRESH_COOKIE_NAME = "refreshToken";
 
     private final AuthProperties authProperties;
+    private final ApiProperties apiProperties;
 
     /**
      * Build a secure cookie
@@ -50,7 +52,7 @@ public class AuthCookieService {
         return buildCookie(
                 ACCESS_COOKIE_NAME,
                 accessToken,
-                "/",
+                apiProperties.getBase() + "/",
                 authProperties.getAccessTokenValiditySeconds()
         );
     }
@@ -60,7 +62,7 @@ public class AuthCookieService {
      * @return the void access cookie
      */
     public ResponseCookie clearAccessCookie() {
-        return clearCookie(ACCESS_COOKIE_NAME, "/");
+        return clearCookie(ACCESS_COOKIE_NAME, apiProperties.getBase() + "/");
     }
 
     /**
@@ -72,7 +74,7 @@ public class AuthCookieService {
         return buildCookie(
                 REFRESH_COOKIE_NAME,
                 refreshToken,
-                "/auth/refresh",
+                apiProperties.getBase() + "/auth/refresh",
                 authProperties.getRefreshTokenValiditySeconds()
         );
     }
@@ -82,6 +84,6 @@ public class AuthCookieService {
      * @return the void refresh cookie
      */
     public ResponseCookie clearRefreshCookie() {
-        return clearCookie(REFRESH_COOKIE_NAME, "/auth/refresh");
+        return clearCookie(REFRESH_COOKIE_NAME, apiProperties.getBase() + "/auth/refresh");
     }
 }

@@ -1,8 +1,11 @@
 package it.sdc.src.service;
 
+import it.sdc.src.config.ApiProperties;
 import it.sdc.src.config.AuthProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.ResponseCookie;
 
 import java.util.UUID;
@@ -10,7 +13,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class AuthCookieServiceTest {
-    private AuthCookieService authCookieService;
     private AuthProperties authProperties;
 
     @BeforeEach
@@ -18,7 +20,12 @@ public class AuthCookieServiceTest {
         authProperties = new AuthProperties();
         authProperties.setAccessTokenValiditySeconds(3600);
         authProperties.setRefreshTokenValiditySeconds(7200);
-        authCookieService = new AuthCookieService(authProperties);
+    }
+
+    private AuthCookieService serviceFor(String apiBase) {
+        ApiProperties apiProperties = new ApiProperties();
+        apiProperties.setBase(apiBase);
+        return new AuthCookieService(authProperties, apiProperties);
     }
 
     void assertSecureCookie(ResponseCookie responseCookie) {
@@ -27,17 +34,17 @@ public class AuthCookieServiceTest {
         assertThat(responseCookie.isSecure()).isEqualTo(authProperties.isCookieSecure());
     }
 
-    void assertAccessCookie(ResponseCookie responseCookie) {
+    void assertAccessCookie(ResponseCookie responseCookie, String apiBase) {
         assertThat(responseCookie).isNotNull();
         assertThat(responseCookie.getName()).isEqualTo(AuthCookieService.ACCESS_COOKIE_NAME);
-        assertThat(responseCookie.getPath()).isEqualTo("/");
+        assertThat(responseCookie.getPath()).isEqualTo(apiBase + "/");
         assertSecureCookie(responseCookie);
     }
 
-    void assertRefreshCookie(ResponseCookie responseCookie) {
+    void assertRefreshCookie(ResponseCookie responseCookie, String apiBase) {
         assertThat(responseCookie).isNotNull();
         assertThat(responseCookie.getName()).isEqualTo(AuthCookieService.REFRESH_COOKIE_NAME);
-        assertThat(responseCookie.getPath()).isEqualTo("/auth/refresh");
+        assertThat(responseCookie.getPath()).isEqualTo(apiBase + "/auth/refresh");
         assertSecureCookie(responseCookie);
     }
 
@@ -47,35 +54,50 @@ public class AuthCookieServiceTest {
         assertThat(responseCookie.getMaxAge().getSeconds()).isEqualTo(0);
     }
 
-    @Test
-    void buildAccessCookie_buildsValidAccessCookie() {
+    @ParameterizedTest
+    @ValueSource(strings = { "", "/api" })
+    void buildAccessCookie_buildsValidAccessCookie(String apiBase) {
+        AuthCookieService authCookieService = serviceFor(apiBase);
         String accessToken = UUID.randomUUID().toString();
         ResponseCookie result = authCookieService.buildAccessCookie(accessToken);
-        assertAccessCookie(result);
+        assertAccessCookie(result, apiBase);
         assertThat(result.getValue()).isEqualTo(accessToken);
         assertThat(result.getMaxAge().getSeconds()).isEqualTo(authProperties.getAccessTokenValiditySeconds());
     }
 
-    @Test
-    void clearAccessCookie_invalidatesAccessCookie() {
+    @ParameterizedTest
+    @ValueSource(strings = { "", "/api" })
+    void clearAccessCookie_invalidatesAccessCookie(String apiBase) {
+        AuthCookieService authCookieService = serviceFor(apiBase);
         ResponseCookie result = authCookieService.clearAccessCookie();
-        assertAccessCookie(result);
+        assertAccessCookie(result, apiBase);
         assertVoidCookie(result);
     }
 
-    @Test
-    void buildRefreshCookie_buildsValidRefreshCookie() {
+    @ParameterizedTest
+    @ValueSource(strings = { "", "/api" })
+    void buildRefreshCookie_buildsValidRefreshCookie(String apiBase) {
+        AuthCookieService authCookieService = serviceFor(apiBase);
         String refreshToken = UUID.randomUUID().toString();
         ResponseCookie result = authCookieService.buildRefreshCookie(refreshToken);
-        assertRefreshCookie(result);
+        assertRefreshCookie(result, apiBase);
         assertThat(result.getValue()).isEqualTo(refreshToken);
         assertThat(result.getMaxAge().getSeconds()).isEqualTo(authProperties.getRefreshTokenValiditySeconds());
     }
 
-    @Test
-    void clearRefreshCookie_invalidatesRefreshCookie() {
+    @ParameterizedTest
+    @ValueSource(strings = { "", "/api" })
+    void clearRefreshCookie_invalidatesRefreshCookie(String apiBase) {
+        AuthCookieService authCookieService = serviceFor(apiBase);
         ResponseCookie result = authCookieService.clearRefreshCookie();
-        assertRefreshCookie(result);
+        assertRefreshCookie(result, apiBase);
         assertVoidCookie(result);
+    }
+
+    @Test
+    void clearRefreshCookie_usesTheSamePathAsBuild() {
+        AuthCookieService authCookieService = serviceFor("/api");
+        assertThat(authCookieService.clearRefreshCookie().getPath())
+                .isEqualTo(authCookieService.buildRefreshCookie("token").getPath());
     }
 }

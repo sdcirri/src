@@ -8,3 +8,6 @@ spring:
 
   auth:
     cookie-secure: false
+
+api:
+  base: ""
