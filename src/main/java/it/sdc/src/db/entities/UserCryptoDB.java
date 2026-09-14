@@ -43,6 +43,6 @@ public class UserCryptoDB {
 
     @OneToOne
     @MapsId
-    @JoinColumn(name = "id")
+    @JoinColumn(name = "id", foreignKey = @ForeignKey(name = "fk_users_crypto_user"))
     private UserDB userDB;
 }

@@ -12,7 +12,10 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "src_sessions",
-        check = {@CheckConstraint(constraint = "access_token != refresh_token")}
+        check = {@CheckConstraint(
+                name = "src_sessions_access_ne_refresh",
+                constraint = "access_token != refresh_token"
+        )}
 )
 @Getter
 @NoArgsConstructor
@@ -36,5 +39,10 @@ public class UserSessionDB {
     private Instant refreshTokenExpires;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "user_id",
+            referencedColumnName = "id",
+            foreignKey = @ForeignKey(name = "fk_session_user_id")
+    )
     private UserDB user;
 }
