@@ -1,0 +1,15 @@
+FROM node:lts AS builder
+LABEL authors="sdcirri"
+
+WORKDIR /app
+COPY webui webui
+
+WORKDIR /app/webui
+ENV VITE_API_BASE=/api
+RUN npm install
+RUN npm run build-prod
+
+FROM nginx:stable
+
+COPY --from=builder /app/webui/dist /usr/share/nginx/html
+RUN chmod -R a+r /usr/share/nginx/html

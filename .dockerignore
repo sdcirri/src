@@ -1,0 +1,39 @@
+# VCS / CI / IDE
+.git
+.gitignore
+.github
+.idea
+.vscode
+
+# Python
+.venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.coverage
+.coveragerc
+coverage_report
+test
+pytest.ini
+requirements-dev.txt
+
+# Frontend (rebuilt inside the image)
+webui/node_modules
+webui/dist
+webui/coverage
+webui/tests
+
+# Docs / extras
+doc
+README.md
+LICENSE
+backend_demo.py
+
+# Secrets / local env
+.env
+.env.*
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
