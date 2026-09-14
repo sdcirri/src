@@ -1,12 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { x25519 } from '@noble/curves/ed25519.js';
+import { describe, expect, it } from 'vitest';
 
-import { encryptMessage, decryptMessage } from '@/crypto/messaging';
-
-function generateX25519KeyPair() {
-    const privateKey = x25519.utils.randomSecretKey();
-    return { privateKey, publicKey: x25519.getPublicKey(privateKey) };
-}
+import { generateX25519KeyPair } from '@/crypto/keys';
+import { decryptMessage, encryptMessage } from '@/crypto/messaging';
 
 describe('encryptMessage / decryptMessage', () => {
     it('roundtrip between two parties', async () => {
@@ -29,7 +24,7 @@ describe('encryptMessage / decryptMessage', () => {
         expect(encrypted.messageIV.byteLength).toBe(12);
         expect(encrypted.messageData.byteLength).toBeGreaterThan(0);
         expect(Uint8Array.from(encrypted.messageData)).not.toEqual(
-            Uint8Array.from(new TextEncoder().encode('ping'))
+            Uint8Array.from(new TextEncoder().encode('ping')),
         );
     });
 
@@ -62,7 +57,7 @@ describe('encryptMessage / decryptMessage', () => {
         const encrypted = await encryptMessage('secret', alice.privateKey, bob.publicKey);
 
         await expect(
-            decryptMessage(encrypted, bob.privateKey, eve.publicKey)
+            decryptMessage(encrypted, bob.privateKey, eve.publicKey),
         ).rejects.toThrow();
     });
 
@@ -78,8 +73,8 @@ describe('encryptMessage / decryptMessage', () => {
             decryptMessage(
                 { messageData: tamperedData, messageIV: encrypted.messageIV },
                 bob.privateKey,
-                alice.publicKey
-            )
+                alice.publicKey,
+            ),
         ).rejects.toThrow();
     });
 
@@ -95,8 +90,8 @@ describe('encryptMessage / decryptMessage', () => {
             decryptMessage(
                 { messageData: encrypted.messageData, messageIV: tamperedIv },
                 bob.privateKey,
-                alice.publicKey
-            )
+                alice.publicKey,
+            ),
         ).rejects.toThrow();
     });
 });

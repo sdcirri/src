@@ -1,22 +1,34 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { aesEncrypt, aesDecrypt } from '@/crypto/common';
+import { aesDecrypt, aesEncrypt, fromBase64, toBase64 } from '@/crypto/common';
+
+import { expectBytes } from './helpers';
+
+describe('toBase64 / fromBase64', () => {
+    it('roundtrip', () => {
+        const bytes = new Uint8Array([0, 1, 127, 128, 255]);
+        expectBytes(fromBase64(toBase64(bytes)), bytes);
+    });
+
+    it('empty input', () => {
+        expect(toBase64(new Uint8Array(0))).toBe('');
+        expectBytes(fromBase64(''), new Uint8Array(0));
+    });
+});
 
 describe('aesEncrypt / aesDecrypt', () => {
     it('roundtrip', async () => {
         const key = crypto.getRandomValues(new Uint8Array(32));
         const plaintext = new TextEncoder().encode('hello world');
         const encrypted = await aesEncrypt(key, plaintext);
-        const decrypted = await aesDecrypt(key, encrypted);
-        expect(Uint8Array.from(decrypted)).toEqual(Uint8Array.from(plaintext));
+        expectBytes(await aesDecrypt(key, encrypted), plaintext);
     });
 
     it('empty plaintext', async () => {
         const key = crypto.getRandomValues(new Uint8Array(32));
         const plaintext = new Uint8Array(0);
         const encrypted = await aesEncrypt(key, plaintext);
-        const decrypted = await aesDecrypt(key, encrypted);
-        expect(Uint8Array.from(decrypted)).toEqual(Uint8Array.from(plaintext));
+        expectBytes(await aesDecrypt(key, encrypted), plaintext);
     });
 
     it('iv is 12 bytes', async () => {
