@@ -29,13 +29,13 @@ public class UserSessionDB {
     @Column(name = "access_token", nullable = false, unique = true)
     private byte[] accessToken;
 
-    @Column(nullable = false)
+    @Column(name = "access_token_expires", nullable = false)
     private Instant accessTokenExpires;
 
     @Column(name = "refresh_token", nullable = false, unique = true)
     private byte[] refreshToken;
 
-    @Column(nullable = false)
+    @Column(name = "refresh_token_expires", nullable = false)
     private Instant refreshTokenExpires;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

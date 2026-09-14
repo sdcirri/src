@@ -15,30 +15,30 @@ public class UserCryptoDB {
     @Id
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "kek_salt", nullable = false)
     @Setter
     private byte[] kekSalt;
 
-    @Column(nullable = false)
+    @Column(name = "iv_ed25519", nullable = false)
     @Setter
     private byte[] ivEd25519;
 
-    @Column(nullable = false)
+    @Column(name = "private_ed25519", nullable = false)
     @Setter
     private byte[] privateEd25519;
 
-    @Column(nullable = false)
+    @Column(name = "public_ed25519", nullable = false)
     private byte[] publicEd25519;
 
-    @Column(nullable = false)
+    @Column(name = "iv_x25519", nullable = false)
     @Setter
     private byte[] ivX25519;
 
-    @Column(nullable = false)
+    @Column(name = "private_x25519", nullable = false)
     @Setter
     private byte[] privateX25519;
 
-    @Column(nullable = false)
+    @Column(name = "public_x25519", nullable = false)
     private byte[] publicX25519;
 
     @OneToOne

@@ -24,16 +24,18 @@ public class UserDB {
     private String username;
 
     @Setter
+    @Column(name = "display_name")
     private String displayName;
 
     @Setter
-    @Column(nullable = false)
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(nullable = false)
+    @Column(name = "registration_time_utc", nullable = false)
     private Instant registrationTimeUTC;
 
     @Setter
+    @Column(name = "pro_pic")
     private byte[] proPic;
 
     @OneToOne(mappedBy = "userDB", cascade = CascadeType.ALL, orphanRemoval = true)
