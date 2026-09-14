@@ -16,9 +16,9 @@ export async function request<T>(
     const method = (init.method ?? 'GET').toUpperCase();
     const headers = new Headers(init.headers);
 
-    if (!headers.has('Content-Type') && init.body) {
+    if (!headers.has('Content-Type') && init.body && !(init.body instanceof FormData))
         headers.set('Content-Type', 'application/json');
-    }
+
     if (method !== 'GET' && method !== 'HEAD') {
         const csrf = getCsrfToken();
         if (csrf) headers.set('X-XSRF-TOKEN', decodeURIComponent(csrf));
@@ -30,9 +30,9 @@ export async function request<T>(
         credentials: 'include',
     });
 
-    if (!res.ok) {
+    if (!res.ok)
         throw new ApiError(res.status, await res.text());
-    }
+
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
 }
