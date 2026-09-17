@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { login, logout, refreshSession, register } from '@/api/auth.ts';
 import { getMyCryptoSpecs, getUserInfo } from '@/api/users.ts';
-import { login, logout, refreshSession } from '@/api/auth.ts';
 import { decryptKeys } from '@/crypto/kek.ts';
 import { ApiError } from '@/api/types.ts';
 
@@ -21,7 +21,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }, []);
 
     return (
-        <SessionContext.Provider value={{ session, signIn, unlock, signOut }}>
+        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut }}>
             {children}
         </SessionContext.Provider>
     );
@@ -37,6 +37,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async function unlock(password: string) {
         const keys = await decryptKeys(session.crypto!, password);
         setSession({ ...session, status: 'unlocked', keys });
+    }
+
+    async function signUp(username: string, displayName: string | null, password: string) {
+        const crypto = await register({ username, displayName, password });
+        const user = await getUserInfo(crypto.id);
+        const keys = await decryptKeys(crypto, password);
+        setSession({ status: 'unlocked', user, crypto, keys });
     }
 
     async function signOut() {

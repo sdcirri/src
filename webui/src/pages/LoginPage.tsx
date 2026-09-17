@@ -1,5 +1,5 @@
 import { type SubmitEvent, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 
 import { useSession } from '@/session/useSession.ts';
 import { ApiError } from '@/api/types.ts';
@@ -9,6 +9,7 @@ import '@/css/main.css';
 
 function LoginPage() {
     const { signIn } = useSession();
+    const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
 
@@ -28,6 +29,7 @@ function LoginPage() {
 
         try {
             await signIn(username, password);
+            navigate('/', { replace: true });
         } catch (err) {
             setError(err instanceof ApiError && err.status === 401
                 ? 'Username or password is wrong'
