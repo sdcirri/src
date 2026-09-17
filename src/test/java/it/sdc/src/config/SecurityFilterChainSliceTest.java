@@ -6,9 +6,12 @@ import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.controllers.AuthController;
 import it.sdc.src.controllers.ChatController;
 import it.sdc.src.dto.requests.LoginRequest;
+import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -126,5 +129,30 @@ public class SecurityFilterChainSliceTest {
                 .andExpect(status().is2xxSuccessful());
 
         verifyNoInteractions(accessTokenIntrospector);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "/auth/login", "/auth/register" })
+    void publicAuthPosts_doNotIntrospectAccessToken(String path) throws Exception {
+        when(authService.login(anyString(), anyString())).thenReturn(mockSessionDto());
+        when(authService.register(any(UserRegistrationRequest.class))).thenReturn(mockSessionDto());
+        when(authCookieService.buildAccessCookie(anyString()))
+                .thenReturn(ResponseCookie.from("accessToken", "token").build());
+        when(authCookieService.buildRefreshCookie(anyString()))
+                .thenReturn(ResponseCookie.from("refreshToken", "token").build());
+
+        String body = path.endsWith("login")
+                ? objectMapper.writeValueAsString(new LoginRequest("user", USER_PASSWORD))
+                : objectMapper.writeValueAsString(new UserRegistrationRequest("user", null, USER_PASSWORD));
+
+        mockMvc.perform(
+                post(path)
+                        .with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content(body)
+                        .cookie(new Cookie(AuthCookieService.ACCESS_COOKIE_NAME, "stale-token"))
+        ).andExpect(status().is2xxSuccessful());
+
+        verifyNoInteractions(accessTokenIntrospector, refreshTokenIntrospector);
     }
 }
