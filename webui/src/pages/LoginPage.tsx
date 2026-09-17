@@ -1,18 +1,45 @@
+import { type SubmitEvent, useState } from 'react';
 import { Link } from 'react-router';
+
+import { useSession } from '@/session/useSession.ts';
+import { ApiError } from '@/api/types.ts';
 
 import '@/css/forms.css';
 import '@/css/main.css';
 
 function LoginPage() {
+    const { signIn } = useSession();
+    const [error, setError] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+
+    async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        const username = String(data.get('username') ?? '');
+        const password = String(data.get('password') ?? '');
+        setError(null);
+        setPending(true);
+        try {
+            await signIn(username, password);
+        } catch (err) {
+            setError(err instanceof ApiError && err.status === 401
+                ? 'Username or password is wrong'
+                : 'Login failed');
+        } finally {
+            setPending(false);
+        }
+    }
+
     return (
         <div id='root-container' className='center'>
-            <form id='login-form' className='form center'>
+            <form id='login-form' className='form center' onSubmit={onSubmit}>
                 <h4>Login</h4>
+                {error && <p>{error}</p>}
                 <label htmlFor='username'>Username</label>
                 <input id='username' type='text' name='username' placeholder='Username' />
                 <label htmlFor='password'>Password</label>
                 <input id='password' type='password' name='password' placeholder='Password' />
-                <button type='submit'>Login</button>
+                <button type='submit' disabled={pending}>Login</button>
                 <Link to='/register'>New here? Register!</Link>
             </form>
         </div>
