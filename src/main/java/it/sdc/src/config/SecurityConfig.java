@@ -25,7 +25,6 @@ import java.util.List;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
-
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -48,7 +47,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(appCorsProperties.getAllowedOriginPatterns());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Accept", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Accept", "Content-Type", "X-XSRF-TOKEN"));
         config.setExposedHeaders(List.of("Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
