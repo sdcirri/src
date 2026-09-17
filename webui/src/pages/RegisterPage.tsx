@@ -65,13 +65,13 @@ function RegisterPage() {
                 <h4>Register</h4>
                 {error && <p>{error}</p>}
                 <label htmlFor='username'>Username</label>
-                <input id='username' type='text' name='username' placeholder='Username' />
-                <label htmlFor='displayName'>Display name</label>
+                <input id='username' type='text' name='username' placeholder='Username' required />
+                <label htmlFor='displayName'>Display name (optional)</label>
                 <input id='displayName' type='text' name='displayName' placeholder='Display name' />
                 <label htmlFor='password'>Password</label>
-                <input id='password' type='password' name='password' placeholder='Password' />
+                <input id='password' type='password' name='password' placeholder='Password' required />
                 <label htmlFor='passwordConfirm'>Confirm password</label>
-                <input id='passwordConfirm' type='password' name='passwordConfirm' placeholder='Confirm password' />
+                <input id='passwordConfirm' type='password' name='passwordConfirm' placeholder='Confirm password' required />
                 <button type='submit' disabled={pending}>Register</button>
             </form>
         </div>

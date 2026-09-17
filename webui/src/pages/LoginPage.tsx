@@ -17,8 +17,15 @@ function LoginPage() {
         const data = new FormData(e.currentTarget);
         const username = String(data.get('username') ?? '');
         const password = String(data.get('password') ?? '');
+
+        if (username.length < 3 || username.length > 255 || password.length < 8 || password.length > 255) {
+            setError('Username or password is wrong');
+            return;
+        }
+
         setError(null);
         setPending(true);
+
         try {
             await signIn(username, password);
         } catch (err) {
@@ -36,9 +43,9 @@ function LoginPage() {
                 <h4>Login</h4>
                 {error && <p>{error}</p>}
                 <label htmlFor='username'>Username</label>
-                <input id='username' type='text' name='username' placeholder='Username' />
+                <input id='username' type='text' name='username' placeholder='Username' required />
                 <label htmlFor='password'>Password</label>
-                <input id='password' type='password' name='password' placeholder='Password' />
+                <input id='password' type='password' name='password' placeholder='Password' required />
                 <button type='submit' disabled={pending}>Login</button>
                 <Link to='/register'>New here? Register!</Link>
             </form>
