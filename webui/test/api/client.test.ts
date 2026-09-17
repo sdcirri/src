@@ -58,6 +58,21 @@ describe('request', () => {
         return lastFetchInit().headers as Headers;
     }
 
+    it('defaults API base to empty when unset', async () => {
+        vi.unstubAllEnvs();
+        vi.stubEnv('VITE_API_BASE', undefined as unknown as string);
+
+        fetchMock.mockResolvedValue(mockResponse({
+            ok: true,
+            status: 204,
+        }));
+
+        const { request } = await loadClient();
+        await request('/auth/logout', { method: 'POST' });
+
+        expect(fetchMock).toHaveBeenCalledWith('/auth/logout', expect.any(Object));
+    });
+
     it('performs GET and parses JSON responses', async () => {
         fetchMock.mockResolvedValue(mockResponse({
             ok: true,
