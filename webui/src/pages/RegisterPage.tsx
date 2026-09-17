@@ -1,4 +1,3 @@
-import { useSession } from '@/session/useSession.ts';
 import { type SubmitEvent, useState } from 'react';
 
 import { ApiError } from '@/api/types.ts';
@@ -8,7 +7,6 @@ import '@/css/forms.css';
 import '@/css/main.css';
 
 function RegisterPage() {
-    const { signIn } = useSession();
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
 
@@ -16,25 +14,46 @@ function RegisterPage() {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
         const username = String(data.get('username') ?? '');
-        const displayName = String(data.get('displayName') ?? '');
+        const displayName = String(data.get('displayName'));
         const password = String(data.get('password') ?? '');
         const passwordConfirm = String(data.get('passwordConfirm') ?? '');
 
+        setError(null);
+        setPending(true);
+
+        if(displayName != null && (displayName.length < 1 || displayName.length > 255)) {
+            setError('Bad display name');
+            setPending(false);
+            return;
+        }
+        if(!/^[A-Za-z0-9_.-]{3,255}$/.test(username)) {
+            setError('Bad username');
+            setPending(false);
+            return;
+        }
         if (password !== passwordConfirm) {
-            setError("Passwords don't match");
+            setError('Passwords don\'t match');
             setPending(false);
             return;
         }
 
-        setError(null);
-        setPending(true);
         try {
             await register({ username, displayName, password });
-            await signIn(username, password);
         } catch (err) {
-            setError(err instanceof ApiError && err.status === 401
-                ? 'Username or password is wrong'
-                : 'Registration failed');
+            if (!(err instanceof ApiError)) {
+                setError('Registration failed');
+            } else {
+                switch (err.status) {
+                    case 409:
+                        setError('Username already taken');
+                        break;
+                    case 400:
+                        setError('Password too weak');
+                        break;
+                    default:
+                        setError('Registration failed');
+                }
+            }
         } finally {
             setPending(false);
         }
