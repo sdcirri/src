@@ -5,6 +5,7 @@ import { useSession } from '@/session/useSession.ts';
 import RegisterPage from '@/pages/RegisterPage.tsx';
 import UnlockPage from '@/pages/UnlockPage.tsx';
 import LoginPage from '@/pages/LoginPage.tsx';
+import MainPage from '@/pages/MainPage.tsx';
 
 import '@/css/main.css';
 
@@ -25,15 +26,7 @@ function App() {
     );
     if (session.status === 'locked') return <UnlockPage />;
 
-    return (
-        <div id='root-container'>
-            <div id='top-bar'><h1>S R C</h1></div>
-            <div id='app-container'>
-                <div id='sidebar'></div>
-                <div id='chat-container'></div>
-            </div>
-        </div>
-    )
+    return <MainPage />;
 }
 
 export default App
