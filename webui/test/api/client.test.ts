@@ -8,11 +8,11 @@ type MockResponseInit = {
 };
 
 function mockResponse(init: MockResponseInit) {
+    const text = init.body ?? (init.json === undefined ? '' : JSON.stringify(init.json));
     return {
         ok: init.ok,
         status: init.status,
-        text: vi.fn().mockResolvedValue(init.body ?? ''),
-        json: vi.fn().mockResolvedValue(init.json),
+        text: vi.fn().mockResolvedValue(text),
     };
 }
 
@@ -34,6 +34,7 @@ describe('request', () => {
 
     beforeEach(() => {
         vi.resetModules();
+        vi.stubEnv('VITE_API_BASE', '');
         vi.stubGlobal('fetch', fetchMock);
         clearCookies();
         fetchMock.mockReset();

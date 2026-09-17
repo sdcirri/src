@@ -33,6 +33,7 @@ export async function request<T>(
     if (!res.ok)
         throw new ApiError(res.status, await res.text());
 
-    if (res.status === 204) return undefined as T;
-    return (await res.json()) as T;
+    const text = await res.text();
+    if (text.length === 0) return undefined as T;
+    return JSON.parse(text) as T;
 }
