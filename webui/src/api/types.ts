@@ -41,8 +41,8 @@ export type UserCryptoDto = {
 export type UserDto = {
     id: string;
     username: string;
-    displayName: string;
-    proPic: string;
+    displayName: string | null;
+    proPic: string | null;
 };
 
 export type LoginRequest = {
