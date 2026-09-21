@@ -9,6 +9,9 @@
     --color-on-action: #ffffff;
     --color-on-action-muted: #cecece;
     --color-error: #a30318;
+
+    --border-radius: 5px;
+    --dialog-border-radius: 10px;
 }
 
 .center {

@@ -1,3 +1,6 @@
+:root {
+    --element-border-radius: 8px;
+}
 
 .form {
     box-sizing: border-box;
@@ -6,7 +9,7 @@
     gap: 0.55rem;
     background: var(--color-surface);
     color: var(--color-text);
-    border-radius: 10px;
+    border-radius: var(--dialog-border-radius);
     padding: 1.75rem 1.5rem 1.5rem;
     width: min(22rem, 90%);
     font-family: system-ui, sans-serif;
@@ -33,7 +36,7 @@
     width: 100%;
     padding: 0.65rem 0.75rem;
     border: 1px solid var(--color-border-strong);
-    border-radius: 8px;
+    border-radius: var(--element-border-radius);
     background: var(--color-bg);
     font: inherit;
     font-size: 0.95rem;
@@ -63,7 +66,7 @@
     margin-top: 1rem;
     padding: 0.7rem 1rem;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--element-border-radius);
     background: var(--color-action);
     color: var(--color-on-action);
     font: inherit;
