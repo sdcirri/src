@@ -1,3 +1,4 @@
+import { M3LoadingIndicator } from '@alerix/m3-loading-indicator/react';
 import { type SubmitEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
@@ -11,7 +12,14 @@ function LoginPage() {
     const { signIn } = useSession();
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
+    const [shake, setShake] = useState(false);
     const [pending, setPending] = useState(false);
+
+    function showError(message: string) {
+        setError(message);
+        setShake(false);
+        requestAnimationFrame(() => setShake(true));
+    }
 
     async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -20,7 +28,7 @@ function LoginPage() {
         const password = String(data.get('password') ?? '');
 
         if (username.length < 3 || username.length > 255 || password.length < 8 || password.length > 255) {
-            setError('Username or password is wrong');
+            showError('Username or password is wrong');
             return;
         }
 
@@ -31,7 +39,7 @@ function LoginPage() {
             await signIn(username, password);
             navigate('/', { replace: true });
         } catch (err) {
-            setError(err instanceof ApiError && err.status === 401
+            showError(err instanceof ApiError && err.status === 401
                 ? 'Username or password is wrong'
                 : 'Login failed');
         } finally {
@@ -41,7 +49,12 @@ function LoginPage() {
 
     return (
         <div id='root-container' className='center'>
-            <form id='login-form' className='form center' onSubmit={onSubmit}>
+            <form
+                id='login-form'
+                className={shake ? 'form center form-shake' : 'form center'}
+                onSubmit={onSubmit}
+                onAnimationEnd={(e) => { if (e.target === e.currentTarget) setShake(false); }}
+            >
                 <h4>Login</h4>
                 {error && <p className='form-error'>{error}</p>}
                 <label htmlFor='username'>Username</label>
@@ -49,6 +62,7 @@ function LoginPage() {
                 <label htmlFor='password'>Password</label>
                 <input id='password' type='password' name='password' placeholder='Password' required />
                 <button type='submit' disabled={pending}>Login</button>
+                {pending && <M3LoadingIndicator size={128} className='spinner' />}
                 <Link to='/register'>New here? Register!</Link>
             </form>
         </div>

@@ -91,3 +91,21 @@
     color: var(--color-error);
     font-weight: 650;
 }
+
+@keyframes form-shake {
+    0%, 100% { translate: 0; }
+    20% { translate: -7px; }
+    40% { translate: 7px; }
+    60% { translate: -4px; }
+    80% { translate: 4px; }
+}
+
+.form-shake {
+    animation: form-shake 0.32s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .form-shake {
+        animation: none;
+    }
+}
