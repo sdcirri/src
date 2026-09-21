@@ -1,28 +1,35 @@
+:root {
+    --space: 0.625rem;
+    --icon-sm: 2rem;
+    --title: clamp(1.15rem, 2.5vw, 1.5rem);
+}
+
 #topbar {
     display: flex;
+    flex-shrink: 0;
     background: var(--color-action);
     color: var(--color-on-action);
-    height: 5%;
     width: 100%;
     align-items: center;
     justify-content: center;
 }
 
 #topbar-title {
-    padding: 10px;
+    padding: var(--space);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 #topbar-title h1 {
-    font-size: 36px;
-    margin-left: 10px;
+    font-size: var(--title);
+    margin: 0 0 0 var(--space);
+    line-height: 1;
 }
 
 #topbar-title svg {
-    width: 36px;
-    height: 36px;
+    min-width: 1em;
+    min-height: 1em;
     fill: currentColor;
 }
 
@@ -35,14 +42,16 @@
 .topbar-button {
     border: none;
     background: transparent;
-    padding: 10px;
+    padding: var(--space);
     color: var(--color-on-action);
+    min-width: 2.5rem;
+    min-height: 2.5rem;
     cursor: pointer;
 }
 
 .topbar-button svg {
-    width: 24px;
-    height: 24px;
+    width: var(--icon-sm);
+    height: var(--icon-sm);
     display: block;
     fill: currentColor;
 }
