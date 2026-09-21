@@ -30,7 +30,7 @@ function UnlockPage() {
         <div id='root-container' className='center'>
             <form id='login-form' className='form center' onSubmit={onSubmit}>
                 <h4>Locked</h4>
-                {error && <p>{error}</p>}
+                {error && <p className='form-error'>{error}</p>}
                 <p>The app is locked, please provide your password to continue</p>
                 <label htmlFor='password'>Password</label>
                 <input id='password' type='password' name='password' placeholder='Password' />

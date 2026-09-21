@@ -1,3 +1,14 @@
+:root {
+    --color-bg: #ffffff;
+    --color-surface: #cecece;
+    --color-text: #000000;
+    --color-text-muted: #686868;
+    --color-border: #cecece;
+    --color-border-strong: #686868;
+    --color-action: #000000;
+    --color-on-action: #ffffff;
+    --color-error: #a30318;
+}
 
 .center {
     text-align: center;
@@ -13,6 +24,8 @@
 html, body, #root {
     height: 100%;
     margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
 }
 
 #root-container {
@@ -23,13 +36,14 @@ html, body, #root {
 }
 
 #top-bar {
-    background: red;
+    background: var(--color-action);
+    color: var(--color-on-action);
     height: 5%;
     width: 100%;
 }
 
 #app-container {
-    background: gray;
+    background: var(--color-bg);
     display: flex;
     flex-direction: row;
     width: 100%;
@@ -37,13 +51,15 @@ html, body, #root {
 }
 
 #sidebar {
-    background: green;
+    background: var(--color-surface);
+    color: var(--color-text);
     height: 100%;
     width: 20%;
 }
 
 #chat-container {
-    background: blue;
+    background: var(--color-bg);
+    color: var(--color-text);
     height: 100%;
     width: 80%;
 }

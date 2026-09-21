@@ -73,7 +73,7 @@ function RegisterPage() {
         <div id='root-container' className='center'>
             <form id='login-form' className='form center' onSubmit={onSubmit}>
                 <h4>Register</h4>
-                {error && <p>{error}</p>}
+                {error && <p className='form-error'>{error}</p>}
                 <label htmlFor='username'>Username</label>
                 <input id='username' type='text' name='username' placeholder='Username' required />
                 <label htmlFor='displayName'>Display name (optional)</label>
