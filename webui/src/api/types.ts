@@ -19,7 +19,7 @@ export type MessageDto = {
 export type ChatDto = {
     chatId: string;
     contactId: string;
-    lastMessage: MessageDto;
+    lastMessage: MessageDto | null;
 };
 
 export type ContactCryptoDto = {

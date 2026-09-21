@@ -1,0 +1,52 @@
+#topbar {
+    display: flex;
+    background: var(--color-action);
+    color: var(--color-on-action);
+    height: 5%;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+#topbar-title {
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#topbar-title h1 {
+    font-size: 36px;
+    margin-left: 10px;
+}
+
+#topbar-title svg {
+    width: 36px;
+    height: 36px;
+    fill: currentColor;
+}
+
+
+#topbar-spacer {
+    max-width: 100%;
+    flex: 1;
+}
+
+.topbar-button {
+    border: none;
+    background: transparent;
+    padding: 10px;
+    color: var(--color-on-action);
+    cursor: pointer;
+}
+
+.topbar-button svg {
+    width: 24px;
+    height: 24px;
+    display: block;
+    fill: currentColor;
+}
+
+.topbar-button:hover {
+    color: var(--color-on-action-muted);
+}

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContactCryptoDto, MessageDto } from '@/api/types';
+import type { ChatDto, ContactCryptoDto, MessageDto } from '@/api/types';
 import type { DecryptedCryptoSpecs } from '@/crypto/kek';
 import { fromBase64, toBase64 } from '@/crypto/common';
 import { generateX25519KeyPair } from '@/crypto/keys';
@@ -12,7 +12,7 @@ const { request } = vi.hoisted(() => ({
 
 vi.mock('@/api/client.ts', () => ({ request }));
 
-import { getChat, sendMessage } from '@/api/chat';
+import {getChat, getChats, sendMessage} from '@/api/chat';
 
 function ownSpecs(privateX25519: Uint8Array, publicX25519: Uint8Array): DecryptedCryptoSpecs {
     return {
@@ -50,6 +50,29 @@ describe('getChat', () => {
         expect(request).toHaveBeenCalledWith('/chats/contact-1?pageNumber=0', {
             method: 'POST',
         });
+    });
+});
+
+describe('getChats', () => {
+    beforeEach(() => {
+        request.mockReset();
+    });
+
+    it('gets the current user chat list', async () => {
+        const chats: ChatDto[] = [{
+            chatId: 'chat-1',
+            contactId: 'contact-1',
+            lastMessage: {
+                timestamp: 1,
+                data: 'wire-data',
+                iv: 'wire-iv',
+                direction: 'INCOMING',
+            },
+        }];
+        request.mockResolvedValue(chats);
+
+        expect(await getChats()).toEqual(chats);
+        expect(request).toHaveBeenCalledWith('/chats');
     });
 });
 

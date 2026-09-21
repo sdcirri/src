@@ -1,7 +1,7 @@
-import { M3LoadingIndicator } from '@alerix/m3-loading-indicator/react';
 import { type SubmitEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
+import { M3LoadingIndicator } from '@alerix/m3-loading-indicator/react';
 import { useSession } from '@/session/useSession.ts';
 import { ApiError } from '@/api/types.ts';
 
@@ -9,11 +9,11 @@ import '@/css/forms.css';
 import '@/css/main.css';
 
 function LoginPage() {
-    const { signIn } = useSession();
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [shake, setShake] = useState(false);
     const [pending, setPending] = useState(false);
+    const { signIn } = useSession();
 
     function showError(message: string) {
         setError(message);

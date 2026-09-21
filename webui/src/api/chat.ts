@@ -1,4 +1,4 @@
-import type { ContactCryptoDto, MessageDto, MessageRequest } from '@/api/types.ts';
+import type { ChatDto, ContactCryptoDto, MessageDto, MessageRequest } from '@/api/types.ts';
 import { request } from '@/api/client.ts';
 
 import type { DecryptedCryptoSpecs } from '@/crypto/kek.ts';
@@ -9,6 +9,10 @@ export async function getChat(contactId: string, pageNumber: number = 0): Promis
     return request<MessageDto[]>(`/chats/${contactId}?pageNumber=${pageNumber}`, {
         method: 'POST',
     })
+}
+
+export async function getChats(): Promise<ChatDto[]> {
+    return request<ChatDto[]>('/chats');
 }
 
 export async function sendMessage(

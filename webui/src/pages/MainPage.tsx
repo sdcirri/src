@@ -1,10 +1,94 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
+
+import type { ChatDto, UserDto } from '@/api/types.ts';
+import { searchUsers } from '@/api/users.ts';
+import { getChats } from '@/api/chat.ts';
+
+import AccountCircle from '@material-symbols/svg-400/rounded/account_circle.svg?react';
+import Security from '@material-symbols/svg-400/rounded/security.svg?react';
+import Logout from '@material-symbols/svg-400/outlined/logout.svg?react';
+import { useSession } from '@/session/useSession.ts';
+import ChatList from '@/components/ChatList.tsx';
+
+import '@/css/sidebar.css';
+import '@/css/topbar.css';
+import '@/css/main.css';
+
+function asFakeChats(users: UserDto[]): ChatDto[] {
+    return users.map(u => {
+        return { chatId: '', contactId: u.id, lastMessage: null }
+    });
+}
 
 function MainPage() {
+    const [chats, setChats] = useState<ChatDto[]>([]);
+    const [users, setUsers] = useState<UserDto[]>([]);
+    const [query, setQuery] = useState('');
+    const navigate = useNavigate();
+    const { signOut } = useSession();
+
+    async function onSignOut() {
+        await signOut();
+        navigate('/login', { replace: true });
+    }
+
+    useEffect(() => {
+        let cancelled = false;
+        getChats().then((list) => { if (!cancelled) setChats(list); });
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        const q = query.trim();
+        if (q.length < 3) return;
+
+        let cancelled = false;
+        const timeout = setTimeout(async () => {
+            const results = await searchUsers(q, 0);
+            if (!cancelled) setUsers(results);
+        }, 300);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
+    }, [query]);
+    
     return (
         <div id='root-container'>
-            <div id='top-bar'><h1>S R C</h1></div>
+            <div id='topbar'>
+                <div id='topbar-title'><Security/><h1>S R C</h1></div>
+                <span id='topbar-spacer'/>
+                <button
+                    type='button'
+                    className='topbar-button'
+                    aria-label='My account'
+                    title='My account'
+                >
+                    <AccountCircle />
+                </button>
+                <button
+                    type='button'
+                    className='topbar-button'
+                    aria-label='Log out'
+                    title='Log out'
+                    onClick={onSignOut}
+                >
+                    <Logout />
+                </button>
+            </div>
             <div id='app-container'>
-                <div id='sidebar'></div>
+                <div id='sidebar'>
+                    <input
+                        type='text'
+                        id='user-search'
+                        placeholder='Search for users...'
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                    />
+                    {query.trim() === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(users)} />}
+                </div>
                 <div id='chat-container'></div>
             </div>
         </div>
