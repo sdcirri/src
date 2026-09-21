@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@alerix/m3-loading-indicator": "^1.0.5",
+    "@material-symbols/svg-400": "^0.47.4",
     "@noble/ciphers": "^2.4.0",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
@@ -37,6 +38,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
+    "vite-plugin-svgr": "^5.2.0",
     "vitest": "^5.0.0"
   }
 }

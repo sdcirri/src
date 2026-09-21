@@ -16,7 +16,7 @@ spring:
 
 api.base: /api
 app.cors.allowed-origin-patterns:
-  - http://localhost:8080
+  - ${CORS_ALLOWED_ORIGIN}
 
 auth:
   access-token-validity-seconds: 3600
