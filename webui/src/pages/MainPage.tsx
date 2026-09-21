@@ -95,7 +95,8 @@ function MainPage() {
                             onChange={(e) => setQuery(e.target.value)}
                         />
                     </div>
-                    {q === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(results)} />}                </div>
+                    {q === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(results)} />}
+                </div>
                 <div id='chat-container'></div>
             </div>
         </div>
