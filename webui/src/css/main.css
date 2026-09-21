@@ -51,13 +51,16 @@ html, body, #root {
 #sidebar {
     background: var(--color-surface);
     color: var(--color-text);
+    flex: 0 1 clamp(16rem, 22vw, 22rem);
+    min-width: 0;
     height: 100%;
-    width: 20%;
+    overflow: auto;
 }
 
 #chat-container {
     background: var(--color-bg);
     color: var(--color-text);
+    flex: 1;
+    min-width: 0;
     height: 100%;
-    width: 80%;
 }
