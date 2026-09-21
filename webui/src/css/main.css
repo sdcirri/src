@@ -12,6 +12,11 @@
 
     --border-radius: 5px;
     --dialog-border-radius: 10px;
+    --sidebar-min: 12rem;
+    --sidebar-pref: 22rem;
+    --sidebar-fluid: 22vw;
+    --sidebar-max-share: 40%;
+    --chat-min: 16rem;
 }
 
 .center {
@@ -51,8 +56,10 @@ html, body, #root {
 #sidebar {
     background: var(--color-surface);
     color: var(--color-text);
-    flex: 0 1 clamp(16rem, 22vw, 22rem);
-    min-width: 0;
+    flex: 0 1 auto;
+    width: clamp(var(--sidebar-min), var(--sidebar-fluid), var(--sidebar-pref));
+    max-width: var(--sidebar-max-share);
+    min-width: var(--sidebar-min);
     height: 100%;
     overflow: auto;
 }
@@ -60,7 +67,8 @@ html, body, #root {
 #chat-container {
     background: var(--color-bg);
     color: var(--color-text);
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 var(--chat-min);
+    min-width: var(--chat-min);
     height: 100%;
+    overflow: auto;
 }

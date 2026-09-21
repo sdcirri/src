@@ -1,98 +1,89 @@
 :root {
     --element-border-radius: 8px;
+    --form-gap: 0.5rem;
+    --form-pad: 1.5rem;
+    --form-width: min(22rem, 90%);
+    --form-title: 1.25rem;
+    --form-label: 0.8rem;
+    --form-body: 0.95rem;
+    --form-weight: 600;
+    --input-pad: 0.65rem 0.75rem;
+    --focus-ring: 3px;
 }
 
 .form {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: var(--form-gap);
     background: var(--color-surface);
     color: var(--color-text);
     border-radius: var(--dialog-border-radius);
-    padding: 1.75rem 1.5rem 1.5rem;
-    width: min(22rem, 90%);
+    padding: var(--form-pad);
+    width: var(--form-width);
     font-family: system-ui, sans-serif;
 }
 
 .form h4 {
-    margin: 0 0 0.75rem;
-    font-size: 1.25rem;
-    font-weight: 650;
-    letter-spacing: 0.02em;
+    margin: 0 0 var(--form-gap);
+    font-size: var(--form-title);
+    font-weight: var(--form-weight);
 }
 
 .form label {
     align-self: flex-start;
-    margin-top: 0.35rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--color-text);
+    margin-top: var(--form-gap);
+    font-size: var(--form-label);
+    font-weight: var(--form-weight);
 }
 
 .form input {
     box-sizing: border-box;
     width: 100%;
-    padding: 0.65rem 0.75rem;
+    padding: var(--input-pad);
     border: 1px solid var(--color-border-strong);
     border-radius: var(--element-border-radius);
     background: var(--color-bg);
     font: inherit;
-    font-size: 0.95rem;
+    font-size: var(--form-body);
     color: var(--color-text);
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.form input::placeholder {
-    color: var(--color-text-muted);
-}
-
-.form input:hover {
-    border-color: var(--color-action);
-    background: var(--color-bg);
-}
+.form input::placeholder { color: var(--color-text-muted); }
+.form input:hover,
+.form input:focus { border-color: var(--color-action); }
 
 .form input:focus {
-    border-color: var(--color-action);
-    background: var(--color-bg);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-action) 18%, transparent);
+    box-shadow: 0 0 0 var(--focus-ring) color-mix(in srgb, var(--color-action) 18%, transparent);
 }
 
 .form button {
     box-sizing: border-box;
     width: 100%;
-    margin-top: 1rem;
-    padding: 0.7rem 1rem;
+    margin-top: var(--form-pad);
+    padding: var(--input-pad);
     border: none;
     border-radius: var(--element-border-radius);
     background: var(--color-action);
     color: var(--color-on-action);
     font: inherit;
-    font-size: 0.95rem;
-    font-weight: 650;
-    letter-spacing: 0.03em;
+    font-size: var(--form-body);
+    font-weight: var(--form-weight);
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.form button:hover {
-    background: var(--color-text-muted);
-}
-
-.form button:active {
-    transform: translateY(1px);
-}
+.form button:hover { background: var(--color-text-muted); }
+.form button:active { transform: translateY(1px); }
 
 .form button:focus-visible {
-    outline: 3px solid color-mix(in srgb, var(--color-action) 35%, transparent);
+    outline: var(--focus-ring) solid color-mix(in srgb, var(--color-action) 35%, transparent);
     outline-offset: 2px;
 }
 
 .form-error {
     color: var(--color-error);
-    font-weight: 650;
+    font-weight: var(--form-weight);
 }
 
 @keyframes form-shake {
@@ -103,12 +94,8 @@
     80% { translate: 4px; }
 }
 
-.form-shake {
-    animation: form-shake 0.32s ease;
-}
+.form-shake { animation: form-shake 0.32s ease; }
 
 @media (prefers-reduced-motion: reduce) {
-    .form-shake {
-        animation: none;
-    }
+    .form-shake { animation: none; }
 }
