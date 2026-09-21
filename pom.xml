@@ -10,9 +10,9 @@
     </parent>
     <groupId>it.sdc</groupId>
     <artifactId>src</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>src</name>
-    <description>SRC - Spring Relay Chat</description>
+    <description>SRC - Spring React Chat</description>
     <url/>
     <licenses>
         <license>
@@ -166,7 +166,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.84</version>
+            <version>1.85</version>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
@@ -270,5 +270,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
