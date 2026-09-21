@@ -12,7 +12,12 @@ import { useSession } from '@/session/useSession.ts';
 import '@/css/card.css';
 import '@/css/main.css';
 
-function ChatCard({ chat }: { chat: ChatDto }) {
+type ChatCardProps = {
+    chat: ChatDto;
+    onSelect: (chat: ChatDto) => void;
+}
+
+function ChatCard({ chat, onSelect }: ChatCardProps) {
     const { session } = useSession();
     const [contact, setContact] = useState<UserDto | null>(null);
     const [messagePreview, setMessagePreview] = useState('');
@@ -57,7 +62,7 @@ function ChatCard({ chat }: { chat: ChatDto }) {
         <button
             type='button'
             className='card-container'
-            onClick={() => {}}
+            onClick={() => { onSelect(chat) }}
         >
             {
                 contact.proPic &&

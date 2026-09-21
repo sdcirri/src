@@ -52,23 +52,3 @@ html, body, #root {
     flex: 1;
     min-height: 0;
 }
-
-#sidebar {
-    background: var(--color-surface);
-    color: var(--color-text);
-    flex: 0 1 auto;
-    width: clamp(var(--sidebar-min), var(--sidebar-fluid), var(--sidebar-pref));
-    max-width: var(--sidebar-max-share);
-    min-width: var(--sidebar-min);
-    height: 100%;
-    overflow: auto;
-}
-
-#chat-container {
-    background: var(--color-bg);
-    color: var(--color-text);
-    flex: 1 1 var(--chat-min);
-    min-width: var(--chat-min);
-    height: 100%;
-    overflow: auto;
-}

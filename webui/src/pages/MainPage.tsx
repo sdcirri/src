@@ -12,6 +12,7 @@ import Search from '@material-symbols/svg-400/rounded/search.svg?react';
 
 import { useSession } from '@/session/useSession.ts';
 import ChatList from '@/components/ChatList.tsx';
+import ChatBox from '@/components/ChatBox.tsx';
 
 import '@/css/sidebar.css';
 import '@/css/topbar.css';
@@ -24,6 +25,7 @@ function asFakeChats(users: UserDto[]): ChatDto[] {
 }
 
 function MainPage() {
+    const [currentChat, setCurrentChat] = useState<ChatDto | null>(null);
     const [chats, setChats] = useState<ChatDto[]>([]);
     const [users, setUsers] = useState<UserDto[]>([]);
     const [query, setQuery] = useState('');
@@ -95,9 +97,9 @@ function MainPage() {
                             onChange={(e) => setQuery(e.target.value)}
                         />
                     </div>
-                    {q === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(results)} />}
+                    <ChatList chats={q === '' ? chats : asFakeChats(results)} onSelect={setCurrentChat} />
                 </div>
-                <div id='chat-container'></div>
+                <ChatBox chat={currentChat} />
             </div>
         </div>
     )

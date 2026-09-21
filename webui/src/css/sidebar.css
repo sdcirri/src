@@ -1,4 +1,16 @@
 
+#sidebar {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-right: 2px solid var(--color-border-strong);
+    flex: 0 1 auto;
+    width: clamp(var(--sidebar-min), var(--sidebar-fluid), var(--sidebar-pref));
+    max-width: var(--sidebar-max-share);
+    min-width: var(--sidebar-min);
+    height: 100%;
+    overflow: auto;
+}
+
 #searchbar {
     display: flex;
     width: auto;
