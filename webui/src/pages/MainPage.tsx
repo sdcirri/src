@@ -8,6 +8,8 @@ import { getChats } from '@/api/chat.ts';
 import AccountCircle from '@material-symbols/svg-400/rounded/account_circle.svg?react';
 import Security from '@material-symbols/svg-400/rounded/security.svg?react';
 import Logout from '@material-symbols/svg-400/outlined/logout.svg?react';
+import Search from '@material-symbols/svg-400/rounded/search.svg?react';
+
 import { useSession } from '@/session/useSession.ts';
 import ChatList from '@/components/ChatList.tsx';
 
@@ -83,13 +85,16 @@ function MainPage() {
             </div>
             <div id='app-container'>
                 <div id='sidebar'>
-                    <input
-                        type='text'
-                        id='user-search'
-                        placeholder='Search for users...'
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                    />
+                    <div id='searchbar'>
+                        <Search />
+                        <input
+                            type='text'
+                            id='user-search'
+                            placeholder='Search for users...'
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
                     {q === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(results)} />}                </div>
                 <div id='chat-container'></div>
             </div>
