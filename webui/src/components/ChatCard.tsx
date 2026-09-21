@@ -6,7 +6,11 @@ import type { ChatDto, UserDto } from '@/api/types.ts';
 import { decryptMessage } from '@/crypto/messaging.ts';
 import { fromBase64 } from '@/crypto/common.ts';
 
+import AccountCircleFill from '@material-symbols/svg-400/rounded/account_circle-fill.svg?react';
 import { useSession } from '@/session/useSession.ts';
+
+import '@/css/card.css';
+import '@/css/main.css';
 
 function ChatCard({ chat }: { chat: ChatDto }) {
     const { session } = useSession();
@@ -50,11 +54,24 @@ function ChatCard({ chat }: { chat: ChatDto }) {
     if (!contact) return null;
 
     return (
-        <div>
-            <img src={(contact.proPic && `data:image/jpg;base64,${contact.proPic}`) || ''} alt={`${contact.username}'s propic`} />
-            <p>{contact.displayName ?? contact.username}</p>
-            <p>{messagePreview}</p>
-        </div>
+        <button
+            type='button'
+            className='card-container'
+            onClick={() => {}}
+        >
+            {
+                contact.proPic &&
+                    <img
+                        src={`data:image/jpg;base64,${contact.proPic}`}
+                        alt={`${contact.username}'s propic`}
+                    />
+                ||  <AccountCircleFill />
+            }
+            <div className='contact-info'>
+                <p>{contact.displayName ?? contact.username}</p>
+                <p>{messagePreview}</p>
+            </div>
+        </button>
     );
 }
 

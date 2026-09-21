@@ -54,6 +54,9 @@ function MainPage() {
             clearTimeout(timeout);
         };
     }, [query]);
+
+    const q = query.trim();
+    const results = q.length >= 3 ? users : [];
     
     return (
         <div id='root-container'>
@@ -87,8 +90,7 @@ function MainPage() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
-                    {query.trim() === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(users)} />}
-                </div>
+                    {q === '' ? <ChatList chats={chats} /> : <ChatList chats={asFakeChats(results)} />}                </div>
                 <div id='chat-container'></div>
             </div>
         </div>
