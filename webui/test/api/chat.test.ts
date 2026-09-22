@@ -38,18 +38,14 @@ describe('getChat', () => {
         request.mockResolvedValue(messages);
 
         expect(await getChat('contact-1', 2)).toEqual(messages);
-        expect(request).toHaveBeenCalledWith('/chats/contact-1?pageNumber=2', {
-            method: 'POST',
-        });
+        expect(request).toHaveBeenCalledWith('/chats/contact-1?n=30&p=2');
     });
 
     it('defaults pageNumber to 0', async () => {
         request.mockResolvedValue([]);
 
         expect(await getChat('contact-1')).toEqual([]);
-        expect(request).toHaveBeenCalledWith('/chats/contact-1?pageNumber=0', {
-            method: 'POST',
-        });
+        expect(request).toHaveBeenCalledWith('/chats/contact-1?n=30&p=0');
     });
 });
 
