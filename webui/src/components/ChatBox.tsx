@@ -66,7 +66,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                     contactCrypto?.publicX25519 && session.keys &&
                         <MessageHistory
                             messages={messages}
-                            myPrivateX25519={session.keys.privateEd25519}
+                            myPrivateX25519={session.keys.privateX25519}
                             theirPublicX25519={fromBase64(contactCrypto.publicX25519)}
                         />
                 }
