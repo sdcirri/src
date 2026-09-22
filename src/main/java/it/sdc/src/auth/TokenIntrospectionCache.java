@@ -57,26 +57,28 @@ public class TokenIntrospectionCache {
     }
 
     public UserPrincipal introspectAccessToken(String bearerToken) {
-        UserPrincipal principal = accessCache.get(bearerToken, this::loadAccess);
+        String tokenKey = cacheKeyFromBearer(bearerToken);
+        UserPrincipal principal = accessCache.get(tokenKey, _ -> loadAccess(bearerToken));
         if (principal.isExpired()) {
-            accessCache.invalidate(bearerToken);
+            accessCache.invalidate(tokenKey);
             throw new BadOpaqueTokenException("Bad auth");
         }
         return principal;
     }
 
     public UserPrincipal introspectRefreshToken(String bearerToken) {
-        UserPrincipal principal = refreshCache.get(bearerToken, this::loadRefresh);
+        String tokenKey = cacheKeyFromBearer(bearerToken);
+        UserPrincipal principal = refreshCache.get(tokenKey, _ -> loadRefresh(bearerToken));
         if (principal.isRefreshExpired()) {
-            refreshCache.invalidate(bearerToken);
+            refreshCache.invalidate(tokenKey);
             throw new BadOpaqueTokenException("Bad auth");
         }
         return principal;
     }
 
     public void evict(UserSessionDB session) {
-        accessCache.invalidate(key(session.getAccessToken()));
-        refreshCache.invalidate(key(session.getRefreshToken()));
+        accessCache.invalidate(encodeHash(session.getAccessToken()));
+        refreshCache.invalidate(encodeHash(session.getRefreshToken()));
     }
 
     public void evictAll(Collection<UserSessionDB> sessions) {
@@ -101,7 +103,11 @@ public class TokenIntrospectionCache {
         return fromSession(session);
     }
 
-    private static String key(byte[] token) {
-        return Base64.getEncoder().encodeToString(token);
+    private static String cacheKeyFromBearer(String bearerToken) {
+        return encodeHash(sha512(decodeToken(bearerToken)));
+    }
+
+    private static String encodeHash(byte[] hash) {
+        return Base64.getEncoder().encodeToString(hash);
     }
 }

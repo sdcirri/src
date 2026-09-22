@@ -101,15 +101,32 @@ public class TokenIntrospectionCacheTest {
     }
 
     @Test
-    void introspectAccessToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException {
+    void introspectAccessToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException {
         SessionFixture fixture = mockSessionFixtureWithExpiredAccessToken(mockUserWithId(passwordEncoder));
         String token = ENCODER.encodeToString(fixture.plainAccessToken());
-        seedCache("accessCache", token, mockPrincipal(fixture.session()));
+        String cacheKey = ENCODER.encodeToString(
+                MessageDigest.getInstance("SHA-512")
+                        .digest(fixture.plainAccessToken())
+        );
 
-        assertThatThrownBy(
-                () -> cache.introspectAccessToken(token)
-        ).isInstanceOf(BadOpaqueTokenException.class);
+        seedCache("accessCache", cacheKey, mockPrincipal(fixture.session()));
+
+        assertThatThrownBy(() -> cache.introspectAccessToken(token))
+                .isInstanceOf(BadOpaqueTokenException.class);
         verifyNoInteractions(userSessionRepository);
+    }
+
+    @Test
+    void evict_shouldRemoveCachedAccessToken() {
+        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
+        String token = ENCODER.encodeToString(fixture.plainAccessToken());
+        when(userSessionRepository.findByAccessToken(any(byte[].class)))
+                .thenReturn(Optional.of(fixture.session()));
+
+        cache.introspectAccessToken(token);
+        cache.evict(fixture.session());
+        cache.introspectAccessToken(token);
+        verify(userSessionRepository, times(2)).findByAccessToken(any(byte[].class));
     }
 
     @Test
@@ -165,15 +182,32 @@ public class TokenIntrospectionCacheTest {
     }
 
     @Test
-    void introspectRefreshToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException {
+    void introspectRefreshToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException {
         SessionFixture fixture = mockSessionFixtureWithExpiredRefreshToken(mockUserWithId(passwordEncoder));
         String token = ENCODER.encodeToString(fixture.plainRefreshToken());
-        seedCache("refreshCache", token, mockPrincipal(fixture.session()));
+        String cacheKey = ENCODER.encodeToString(
+                MessageDigest.getInstance("SHA-512")
+                        .digest(fixture.plainRefreshToken())
+        );
 
-        assertThatThrownBy(
-                () -> cache.introspectRefreshToken(token)
-        ).isInstanceOf(BadOpaqueTokenException.class);
+        seedCache("refreshCache", cacheKey, mockPrincipal(fixture.session()));
+
+        assertThatThrownBy(() -> cache.introspectRefreshToken(token))
+                .isInstanceOf(BadOpaqueTokenException.class);
         verifyNoInteractions(userSessionRepository);
+    }
+
+    @Test
+    void evict_shouldRemoveCachedRefreshToken() {
+        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
+        String token = ENCODER.encodeToString(fixture.plainRefreshToken());
+        when(userSessionRepository.findByRefreshToken(any(byte[].class)))
+                .thenReturn(Optional.of(fixture.session()));
+
+        cache.introspectRefreshToken(token);
+        cache.evict(fixture.session());
+        cache.introspectRefreshToken(token);
+        verify(userSessionRepository, times(2)).findByRefreshToken(any(byte[].class));
     }
 
     @Test
