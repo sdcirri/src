@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { getContactCryptoSpecs, getUserInfo } from'@/api/users.ts';
+import { getContactCryptoSpecs, getUserInfo } from '@/api/users.ts';
 import type { ChatDto, UserDto } from '@/api/types.ts';
 
 import { decryptMessage } from '@/crypto/messaging.ts';

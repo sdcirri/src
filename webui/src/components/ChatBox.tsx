@@ -1,31 +1,50 @@
 import { useEffect, useState } from 'react';
 
-import type { ChatDto, UserDto } from '@/api/types.ts';
-import { getUserInfo } from '@/api/users.ts';
+import type { ChatDto, ContactCryptoDto, MessageDto, UserDto } from '@/api/types.ts';
+import { getContactCryptoSpecs, getUserInfo } from '@/api/users.ts';
+import { getChat } from '@/api/chat.ts';
+
+import { fromBase64 } from '@/crypto/common.ts';
 
 import AccountCircleFill from '@material-symbols/svg-400/rounded/account_circle-fill.svg?react';
 import SendFill from '@material-symbols/svg-400/rounded/send-fill.svg?react';
+
+import MessageHistory from '@/components/MessageHistory.tsx';
+import { useSession } from '@/session/useSession.ts';
 
 import '@/css/main.css';
 import '@/css/chat.css';
 
 function ChatBox({ chat }: { chat: ChatDto | null }) {
+    const { session } = useSession();
+
     const [contact, setContact] = useState<UserDto | null>(null);
+    const [contactCrypto, setContactCrypto] = useState<ContactCryptoDto | null>(null);
+    const [messages, setMessages] = useState<MessageDto[]>([]);
+    const [page, setPage] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
             if (chat) {
-                const user = await getUserInfo(chat.contactId);
+                const [user, crypto] = await Promise.all([
+                    getUserInfo(chat.contactId),
+                    getContactCryptoSpecs(chat.contactId)
+                ]);
+                const history = await getChat(user.id, page);
+
                 if (cancelled) return;
+
                 setContact(user);
+                setContactCrypto(crypto);
+                setMessages(history);
             }
         }
 
         load();
         return () => { cancelled = true; };
-    }, [chat]);
+    }, [chat, page]);
 
     return (
         <div id='chat-container'>
@@ -42,13 +61,25 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                 }
                 { contact && <p id='chat-user'>{contact.displayName ?? contact.username}</p> }
             </div>
-            <div id='chat-body'></div>
-            <div id='message-box'>
-                <input type='text' id='message-input' placeholder='Write something...' />
-                <button id='send-button'>
-                    <SendFill />
-                </button>
+            <div id='chat-body'>
+                {
+                    contactCrypto?.publicX25519 && session.keys &&
+                        <MessageHistory
+                            messages={messages}
+                            myPrivateX25519={session.keys.privateEd25519}
+                            theirPublicX25519={fromBase64(contactCrypto.publicX25519)}
+                        />
+                }
             </div>
+            {
+                contact &&
+                    <div id='message-box'>
+                        <input type='text' id='message-input' placeholder='Write something...' />
+                        <button id='send-button'>
+                            <SendFill />
+                        </button>
+                    </div>
+            }
         </div>
     );
 }
