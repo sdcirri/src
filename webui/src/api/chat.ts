@@ -6,9 +6,7 @@ import { fromBase64, toBase64 } from '@/crypto/common.ts';
 import { encryptMessage } from '@/crypto/messaging.ts';
 
 export async function getChat(contactId: string, pageNumber: number = 0): Promise<MessageDto[]> {
-    return request<MessageDto[]>(`/chats/${contactId}?pageNumber=${pageNumber}`, {
-        method: 'POST',
-    })
+    return request<MessageDto[]>(`/chats/${contactId}?n=30&p=${pageNumber}`);
 }
 
 export async function getChats(): Promise<ChatDto[]> {
@@ -26,10 +24,10 @@ export async function sendMessage(
     const req: MessageRequest = {
         messageData: toBase64(crypto.messageData),
         messageIV: toBase64(crypto.messageIV),
-    }
+    };
 
     return request<MessageDto>(`/chats/${contactId}`, {
         method: 'POST',
         body: JSON.stringify(req),
-    })
+    });
 }
