@@ -30,7 +30,7 @@ export function MessageBubble({ message, myPrivateX25519, theirPublicX25519 }: M
         decrypt();
     }, [message, myPrivateX25519, theirPublicX25519]);
 
-    const timestamp = new Date(message.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timestamp = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return (
         <div className={'message-bubble ' + message.direction.toLowerCase()}>
             <div className='bubble-inner'>
