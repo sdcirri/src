@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
@@ -30,7 +31,6 @@ import java.util.*;
 public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom;
-    private final MessageDigest sha512;
 
     private final UserSessionDBRepository userSessionRepository;
     private final UserCryptoDBRepository userCryptoRepository;
@@ -56,6 +56,14 @@ public class AuthService {
         return new byte[][]{accessToken, refreshToken};
     }
 
+    private static byte[] sha512(byte[] data) {
+        try {
+            return MessageDigest.getInstance("SHA-512").digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
+        }
+    }
+
     /**
      * Generate a new session for the user
      * @param user user
@@ -68,9 +76,9 @@ public class AuthService {
         Instant refreshExp = now.plusSeconds(authProperties.getRefreshTokenValiditySeconds());
         userSessionRepository.save(UserSessionDB.builder()
                 .user(user)
-                .accessToken(sha512.digest(tokens[0]))
+                .accessToken(sha512(tokens[0]))
                 .accessTokenExpires(accessExp)
-                .refreshToken(sha512.digest(tokens[1]))
+                .refreshToken(sha512(tokens[1]))
                 .refreshTokenExpires(refreshExp)
                 .build()
         );

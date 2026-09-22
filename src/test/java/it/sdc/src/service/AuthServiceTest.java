@@ -22,8 +22,6 @@ import org.mockito.ArgumentMatchers;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
@@ -34,7 +32,6 @@ import static org.mockito.Mockito.*;
 
 public class AuthServiceTest {
     private PasswordEncoder passwordEncoder;
-    private SecureRandom secureRandom;
 
     private UserSessionDBRepository userSessionRepository;
     private UserCryptoDBRepository userCryptoRepository;
@@ -44,10 +41,8 @@ public class AuthServiceTest {
     private AuthService authService;
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException {
+    void setUp() {
         passwordEncoder = mock(Argon2PasswordEncoder.class);
-        secureRandom = new SecureRandom();
-        MessageDigest sha512 = MessageDigest.getInstance("SHA-512");
 
         UserCryptoMapper userCryptoMapper = new UserCryptoMapper();
 
@@ -62,8 +57,7 @@ public class AuthServiceTest {
 
         authService = new AuthService(
                 passwordEncoder,
-                secureRandom,
-                sha512,
+                new SecureRandom(),
                 userSessionRepository,
                 userCryptoRepository,
                 userRepository,
@@ -110,7 +104,7 @@ public class AuthServiceTest {
     }
 
     @Test
-    void login_regeneratesTokensWhenAccessAndRefreshCollide() throws NoSuchAlgorithmException {
+    void login_regeneratesTokensWhenAccessAndRefreshCollide() {
         SecureRandom collidingRandom = mock(SecureRandom.class);
         java.util.concurrent.atomic.AtomicInteger nextBytesCalls = new java.util.concurrent.atomic.AtomicInteger();
 
@@ -130,7 +124,6 @@ public class AuthServiceTest {
         AuthService service = new AuthService(
                 passwordEncoder,
                 collidingRandom,
-                MessageDigest.getInstance("SHA-512"),
                 userSessionRepository,
                 userCryptoRepository,
                 userRepository,
@@ -353,7 +346,7 @@ public class AuthServiceTest {
         UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
 
         List<UserSessionDB> userSessions = new ArrayList<>(List.of(mock(UserSessionDB.class), mock(UserSessionDB.class)));
-        when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(invocation -> new ArrayList<>(userSessions));
+        when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(_ -> new ArrayList<>(userSessions));
 
         doAnswer(invocation -> {
             userSessions.removeAll(invocation.getArgument(0));

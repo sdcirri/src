@@ -9,6 +9,7 @@ import org.springframework.security.oauth2.server.resource.introspection.BadOpaq
 import org.springframework.stereotype.Component;
 
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -18,7 +19,6 @@ import java.util.Collection;
 @RequiredArgsConstructor
 public class TokenIntrospectionCache {
     private final UserSessionDBRepository sessionRepository;
-    private final MessageDigest sha512;
 
     private final Cache<String, UserPrincipal> accessCache = Caffeine.newBuilder()
             .maximumSize(10_000)
@@ -29,6 +29,14 @@ public class TokenIntrospectionCache {
             .maximumSize(10_000)
             .expireAfterWrite(Duration.ofMinutes(15))
             .build();
+
+    private static byte[] sha512(byte[] data) {
+        try {
+            return MessageDigest.getInstance("SHA-512").digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
+        }
+    }
 
     private static byte[] decodeToken(String token) {
         try {
@@ -77,7 +85,7 @@ public class TokenIntrospectionCache {
 
     private UserPrincipal loadAccess(String bearerToken) {
         byte[] decoded = decodeToken(bearerToken);
-        UserSessionDB session = sessionRepository.findByAccessToken(sha512.digest(decoded))
+        UserSessionDB session = sessionRepository.findByAccessToken(sha512(decoded))
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getAccessTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");
@@ -86,7 +94,7 @@ public class TokenIntrospectionCache {
 
     private UserPrincipal loadRefresh(String bearerToken) {
         byte[] decoded = decodeToken(bearerToken);
-        UserSessionDB session = sessionRepository.findByRefreshToken(sha512.digest(decoded))
+        UserSessionDB session = sessionRepository.findByRefreshToken(sha512(decoded))
                 .orElseThrow(() -> new BadOpaqueTokenException("Bad auth"));
         if (Instant.now().isAfter(session.getRefreshTokenExpires()))
             throw new BadOpaqueTokenException("Bad auth");

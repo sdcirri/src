@@ -24,11 +24,18 @@ import static org.mockito.Mockito.*;
 public class TokenIntrospectionCacheTest {
     private UserSessionDBRepository userSessionRepository;
     private PasswordEncoder passwordEncoder;
-    private MessageDigest sha512;
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
     private TokenIntrospectionCache cache;
+
+    private static byte[] sha512(byte[] data) {
+        try {
+            return MessageDigest.getInstance("SHA-512").digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
+        }
+    }
 
     @SuppressWarnings("unchecked")
     private Cache<String, UserPrincipal> getCache(String fieldName) throws NoSuchFieldException, IllegalAccessException {
@@ -42,14 +49,13 @@ public class TokenIntrospectionCacheTest {
     }
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException {
+    void setUp() {
         userSessionRepository = mock(UserSessionDBRepository.class);
-        sha512 = MessageDigest.getInstance("SHA-512");
 
         passwordEncoder = mock(PasswordEncoder.class);
         when(passwordEncoder.encode(any())).thenReturn("hash");
 
-        cache = new TokenIntrospectionCache(userSessionRepository, sha512);
+        cache = new TokenIntrospectionCache(userSessionRepository);
     }
 
     private static boolean principalRefersToUser(UserPrincipal principal, UserSessionDB userSession) {
@@ -63,7 +69,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectAccessToken_shouldReturnValidUserPrincipalOnValidAccessToken() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        when(userSessionRepository.findByAccessToken(sha512.digest(fixture.plainAccessToken())))
+        when(userSessionRepository.findByAccessToken(sha512(fixture.plainAccessToken())))
                 .thenReturn(Optional.of(fixture.session()));
 
         UserPrincipal userPrincipal = cache.introspectAccessToken(ENCODER.encodeToString(fixture.plainAccessToken()));
@@ -73,7 +79,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectAccessToken_shouldCacheTokens() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        byte[] accessTokenHash = sha512.digest(fixture.plainAccessToken());
+        byte[] accessTokenHash = sha512(fixture.plainAccessToken());
         when(userSessionRepository.findByAccessToken(accessTokenHash)).thenReturn(Optional.of(fixture.session()));
         String accessToken = ENCODER.encodeToString(fixture.plainAccessToken());
 
@@ -86,7 +92,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectAccessToken_shouldRejectBadTokens() {
         byte[] random = "random".getBytes();
-        byte[] randomHash = sha512.digest(random);
+        byte[] randomHash = sha512(random);
 
         when(userSessionRepository.findByAccessToken(randomHash)).thenReturn(Optional.empty());
         assertThatThrownBy(
@@ -109,7 +115,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectAccessToken_shouldRejectExpiredTokensAtDbLevel() {
         SessionFixture fixture = mockSessionFixtureWithExpiredAccessToken(mockUserWithId(passwordEncoder));
-        when(userSessionRepository.findByAccessToken(sha512.digest(fixture.plainAccessToken())))
+        when(userSessionRepository.findByAccessToken(sha512(fixture.plainAccessToken())))
                 .thenReturn(Optional.of(fixture.session()));
 
         assertThatThrownBy(
@@ -127,7 +133,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectRefreshToken_shouldReturnValidUserPrincipalOnValidRefreshToken() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        when(userSessionRepository.findByRefreshToken(sha512.digest(fixture.plainRefreshToken())))
+        when(userSessionRepository.findByRefreshToken(sha512(fixture.plainRefreshToken())))
                 .thenReturn(Optional.of(fixture.session()));
 
         UserPrincipal userPrincipal = cache.introspectRefreshToken(ENCODER.encodeToString(fixture.plainRefreshToken()));
@@ -137,7 +143,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectRefreshToken_shouldCacheTokens() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        byte[] refreshTokenHash = sha512.digest(fixture.plainRefreshToken());
+        byte[] refreshTokenHash = sha512(fixture.plainRefreshToken());
         when(userSessionRepository.findByRefreshToken(refreshTokenHash)).thenReturn(Optional.of(fixture.session()));
         String refreshToken = ENCODER.encodeToString(fixture.plainRefreshToken());
 
@@ -150,7 +156,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectRefreshToken_shouldRejectBadTokens() {
         byte[] random = "random".getBytes();
-        byte[] randomHash = sha512.digest(random);
+        byte[] randomHash = sha512(random);
 
         when(userSessionRepository.findByRefreshToken(randomHash)).thenReturn(Optional.empty());
         assertThatThrownBy(
@@ -173,7 +179,7 @@ public class TokenIntrospectionCacheTest {
     @Test
     void introspectRefreshToken_shouldRejectExpiredTokensAtDbLevel() {
         SessionFixture fixture = mockSessionFixtureWithExpiredRefreshToken(mockUserWithId(passwordEncoder));
-        when(userSessionRepository.findByRefreshToken(sha512.digest(fixture.plainRefreshToken())))
+        when(userSessionRepository.findByRefreshToken(sha512(fixture.plainRefreshToken())))
                 .thenReturn(Optional.of(fixture.session()));
 
         assertThatThrownBy(
