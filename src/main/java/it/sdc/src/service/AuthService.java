@@ -1,6 +1,7 @@
 package it.sdc.src.service;
 
 import it.sdc.src.auth.TokenIntrospectionCache;
+import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.config.AuthProperties;
 import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
@@ -16,9 +17,12 @@ import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -106,6 +110,27 @@ public class AuthService {
             throw new LoginFailedException("Invalid password");
 
         return yieldSession(user);
+    }
+
+    /**
+     * Invalidates a user session
+     * @param sessionId session ID from the authentication principal
+     */
+    @Transactional
+    public void invalidateSession(UUID sessionId) {
+        UserSessionDB session = userSessionRepository.findById(sessionId).orElse(null);
+        if (session == null) return;
+
+        tokenIntrospectionCache.evict(session);
+        userSessionRepository.delete(session);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        tokenIntrospectionCache.evict(session);
+                    }
+                }
+        );
     }
 
     /**

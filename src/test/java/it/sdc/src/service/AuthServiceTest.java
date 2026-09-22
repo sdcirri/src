@@ -15,12 +15,15 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -65,6 +68,16 @@ public class AuthServiceTest {
                 tokenIntrospectionCache,
                 authProperties
         );
+    }
+
+    @BeforeEach
+    void setUpTransactionSynchronization() {
+        TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @AfterEach
+    void clearTransactionSynchronization() {
+        TransactionSynchronizationManager.clearSynchronization();
     }
 
     @Test
@@ -182,6 +195,49 @@ public class AuthServiceTest {
                 .isInstanceOf(LoginFailedException.class)
                 .hasMessage("Invalid password")
         ;
+    }
+
+    @Test
+    void invalidateSession_shouldNopWhenSessionDoesNotExist() {
+        UUID sessionId = UUID.randomUUID();
+
+        when(userSessionRepository.findById(sessionId))
+                .thenReturn(Optional.empty());
+
+        authService.invalidateSession(sessionId);
+
+        verify(userSessionRepository).findById(sessionId);
+        verify(userSessionRepository, never()).delete(any());
+        verifyNoInteractions(tokenIntrospectionCache);
+    }
+
+    @Test
+    void invalidateSession_shouldEvictAndDeleteSession() {
+        UUID sessionId = UUID.randomUUID();
+        UserSessionDB session = mock(UserSessionDB.class);
+
+        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        authService.invalidateSession(sessionId);
+
+        verify(tokenIntrospectionCache).evict(session);
+        verify(userSessionRepository).delete(session);
+    }
+
+    @Test
+    void invalidateSession_shouldEvictAgainAfterCommit() {
+        UUID sessionId = UUID.randomUUID();
+        UserSessionDB session = mock(UserSessionDB.class);
+
+        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        authService.invalidateSession(sessionId);
+
+        verify(tokenIntrospectionCache, times(1)).evict(session);
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).hasSize(1);
+        synchronizations.getFirst().afterCommit();
+        verify(tokenIntrospectionCache, times(2)).evict(session);
     }
 
     @Test

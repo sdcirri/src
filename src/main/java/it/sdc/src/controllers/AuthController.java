@@ -39,6 +39,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal UserPrincipal user) {
+        authService.invalidateSession(user.getSessionId());
         return ResponseEntity.status(HttpStatus.NO_CONTENT)
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearAccessCookie().toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefreshCookie().toString())

@@ -12,6 +12,7 @@ import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.service.AuthCookieService;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -42,6 +43,7 @@ import static it.sdc.src.test.fixtures.CryptoFixtures.mockUserCryptoDBSpecs;
 import static it.sdc.src.test.fixtures.UserFixtures.USER_PASSWORD;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -230,6 +232,74 @@ public class AuthControllerIntegrationTest {
                 post("/auth/logout")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
+        ).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_shouldRequireCsrf() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/auth/logout").cookie(mockAccessCookie(session))
+        ).andExpect(status().isForbidden());
+
+        assertThat(sessionRepository.findById(session.getId())).isPresent();
+    }
+
+    @Test
+    void logout_shouldDeleteSessionAndRevokeCachedAccessToken() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        Cookie accessCookie = mockAccessCookie(session);
+
+        mockMvc.perform(
+                get("/chats").cookie(accessCookie)
+        ).andExpect(status().isOk());
+
+        assertThat(sessionRepository.findById(session.getId())).isPresent();
+
+        mockMvc.perform(
+                post("/auth/logout")
+                        .with(csrf())
+                        .cookie(accessCookie)
+        ).andExpect(status().isNoContent());
+
+        assertThat(sessionRepository.findById(session.getId())).isEmpty();
+
+        mockMvc.perform(
+                get("/chats").cookie(accessCookie)
+        ).andExpect(status().isUnauthorized());
+
+        assertThat(sessionRepository.findById(session.getId())).isEmpty();
+    }
+
+    @Test
+    void logout_shouldRevokeRefreshToken() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        Cookie accessCookie = mockAccessCookie(session);
+        Cookie refreshCookie = mockRefreshCookie(session);
+
+        mockMvc.perform(
+                post("/auth/logout")
+                        .with(csrf())
+                        .cookie(accessCookie)
+        ).andExpect(status().isNoContent());
+
+        mockMvc.perform(
+                post("/auth/refresh")
+                        .with(csrf())
+                        .cookie(refreshCookie)
         ).andExpect(status().isUnauthorized());
     }
 

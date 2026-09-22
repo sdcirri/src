@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -16,8 +18,14 @@ import org.springframework.security.config.annotation.web.configurers.CsrfConfig
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.OpaqueTokenAuthenticationProvider;
+import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -33,10 +41,17 @@ public class SecurityConfig {
     private final AccessTokenIntrospector accessTokenIntrospector;
     private final RefreshTokenIntrospector refreshTokenIntrospector;
 
-    private final CookieBearerTokenResolver cookieAccessTokenResolver = new CookieBearerTokenResolver(AuthCookieService.ACCESS_COOKIE_NAME);
-    private final CookieBearerTokenResolver cookieRefreshTokenResolver = new CookieBearerTokenResolver(AuthCookieService.REFRESH_COOKIE_NAME);
-
     private final AppCorsProperties appCorsProperties;
+
+    private BearerTokenAuthenticationFilter cookieBearerFilter(OpaqueTokenIntrospector introspector, String cookieName) {
+        OpaqueTokenAuthenticationProvider provider = new OpaqueTokenAuthenticationProvider(introspector);
+        AuthenticationManager authenticationManager = new ProviderManager(provider);
+        BearerTokenAuthenticationConverter converter = new BearerTokenAuthenticationConverter();
+
+        converter.setBearerTokenResolver(new CookieBearerTokenResolver(cookieName));
+
+        return new BearerTokenAuthenticationFilter(authenticationManager, converter);
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -88,9 +103,13 @@ public class SecurityConfig {
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .bearerTokenResolver(cookieRefreshTokenResolver)
-                        .opaqueToken(opaque -> opaque.introspector(refreshTokenIntrospector))
+                .addFilterAfter(
+                        cookieBearerFilter(refreshTokenIntrospector, AuthCookieService.REFRESH_COOKIE_NAME),
+                        CsrfFilter.class
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
+                        .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
                 );
         return http.build();
     }
@@ -113,9 +132,13 @@ public class SecurityConfig {
                 )
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .bearerTokenResolver(cookieAccessTokenResolver)
-                        .opaqueToken(opaque -> opaque.introspector(accessTokenIntrospector))
+                .addFilterAfter(
+                        cookieBearerFilter(accessTokenIntrospector, AuthCookieService.ACCESS_COOKIE_NAME),
+                        CsrfFilter.class
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
+                        .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
                 );
         return http.build();
     }
