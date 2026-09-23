@@ -5,6 +5,8 @@ import AccountCircle from '@material-symbols/svg-400/rounded/account_circle.svg?
 import { changeDisplayName, changeUsername } from '@/api/users.ts';
 import { useSession } from '@/session/useSession.ts';
 
+import '@/css/popover.css';
+import '@/css/forms.css';
 
 function AccountPopover() {
     const { session, updateUser } = useSession();
