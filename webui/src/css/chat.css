@@ -26,6 +26,8 @@
 
 #chat-user {
     padding: var(--input-pad);
+    font-size: 1.75em;
+    font-weight: bold;
 }
 
 #chat-body {

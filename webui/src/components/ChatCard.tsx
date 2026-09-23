@@ -73,8 +73,8 @@ function ChatCard({ chat, onSelect }: ChatCardProps) {
                 ||  <AccountCircleFill />
             }
             <div className='contact-info'>
-                <p>{contact.displayName ?? contact.username}</p>
-                <p>{messagePreview}</p>
+                <p className='card-user'>{contact.displayName ?? contact.username}</p>
+                <p className='card-preview'>{messagePreview}</p>
             </div>
         </button>
     );
