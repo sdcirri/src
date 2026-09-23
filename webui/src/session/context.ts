@@ -1,4 +1,7 @@
 import { createContext } from 'react';
+
+import type { UserDto } from '@/api/types.ts';
+
 import type { Session } from './types.ts';
 
 export const SessionContext = createContext<{
@@ -7,4 +10,5 @@ export const SessionContext = createContext<{
     signUp: (username: string, displayName: string | null, password: string) => Promise<void>;
     unlock: (password: string) => Promise<void>;
     signOut: () => Promise<void>;
+    updateUser: (user: UserDto) => void;
 } | null>(null);

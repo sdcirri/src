@@ -23,7 +23,7 @@ export async function getContactCryptoSpecs(contactId: string): Promise<ContactC
 export async function changeDisplayName(newDisplayName: string): Promise<UserDto> {
     return request<UserDto>('/users/me/display_name', {
         method: 'PUT',
-        body: JSON.stringify({ display_name: newDisplayName }),
+        body: JSON.stringify({ displayName: newDisplayName }),
     });
 }
 

@@ -2,8 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { login, logout, refreshSession, register } from '@/api/auth.ts';
 import { getMyCryptoSpecs, getUserInfo } from '@/api/users.ts';
+import { ApiError, type UserDto } from '@/api/types.ts';
+
 import { decryptKeys } from '@/crypto/kek.ts';
-import { ApiError } from '@/api/types.ts';
 
 import { SessionContext } from './context.ts';
 import type { Session } from './types.ts';
@@ -21,7 +22,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }, []);
 
     return (
-        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut }}>
+        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut, updateUser }}>
             {children}
         </SessionContext.Provider>
     );
@@ -49,6 +50,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async function signOut() {
         await logout();
         setSession({ status: 'anonymous', user: null, crypto: null, keys: null });
+    }
+
+    function updateUser(user: UserDto) {
+        setSession(current => ({ ...current, user }));
     }
 }
 

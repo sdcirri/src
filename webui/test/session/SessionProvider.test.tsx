@@ -386,3 +386,35 @@ it('becomes anonymous when refresh succeeds but session lookup still fails', asy
         expect.anything(),
     );
 });
+
+it('updateUser replaces the user and keeps the rest of the session', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    decryptKeys.mockResolvedValueOnce(MOCK_KEYS);
+    fetchMock
+        .mockResolvedValueOnce(json(200, MOCK_CRYPTO))
+        .mockResolvedValueOnce(json(200, MOCK_USER));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('locked');
+    });
+
+    await act(async () => {
+        await result.current.unlock('password');
+    });
+
+    const updated: UserDto = { ...MOCK_USER, username: 'renamed', displayName: 'Renamed' };
+
+    act(() => {
+        result.current.updateUser(updated);
+    });
+
+    expect(result.current.session.user).toEqual(updated);
+    expect(result.current.session.status).toBe('unlocked');
+    expect(result.current.session.crypto).toEqual(MOCK_CRYPTO);
+    expect(result.current.session.keys).toEqual(MOCK_KEYS);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+});

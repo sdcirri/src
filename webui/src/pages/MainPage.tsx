@@ -5,7 +5,6 @@ import type { ChatDto, UserDto } from '@/api/types.ts';
 import { searchUsers } from '@/api/users.ts';
 import { getChats } from '@/api/chat.ts';
 
-import AccountCircle from '@material-symbols/svg-400/rounded/account_circle.svg?react';
 import Security from '@material-symbols/svg-400/rounded/security.svg?react';
 import Logout from '@material-symbols/svg-400/outlined/logout.svg?react';
 import Search from '@material-symbols/svg-400/rounded/search.svg?react';
@@ -17,6 +16,7 @@ import ChatBox from '@/components/ChatBox.tsx';
 import '@/css/sidebar.css';
 import '@/css/topbar.css';
 import '@/css/main.css';
+import AccountPopover from "@/components/AccountPopover.tsx";
 
 function asFakeChats(users: UserDto[]): ChatDto[] {
     return users.map(u => {
@@ -25,12 +25,13 @@ function asFakeChats(users: UserDto[]): ChatDto[] {
 }
 
 function MainPage() {
+    const navigate = useNavigate();
+    const { signOut } = useSession();
+
     const [currentChat, setCurrentChat] = useState<ChatDto | null>(null);
     const [chats, setChats] = useState<ChatDto[]>([]);
     const [users, setUsers] = useState<UserDto[]>([]);
     const [query, setQuery] = useState('');
-    const navigate = useNavigate();
-    const { signOut } = useSession();
 
     async function onSignOut() {
         await signOut();
@@ -67,14 +68,7 @@ function MainPage() {
             <div id='topbar'>
                 <div id='topbar-title'><Security/><h1>S R C</h1></div>
                 <span id='topbar-spacer'/>
-                <button
-                    type='button'
-                    className='topbar-button'
-                    aria-label='My account'
-                    title='My account'
-                >
-                    <AccountCircle />
-                </button>
+                <AccountPopover />
                 <button
                     type='button'
                     className='topbar-button'

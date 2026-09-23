@@ -59,3 +59,43 @@
 .topbar-button:hover {
     color: var(--color-on-action-muted);
 }
+
+.account-menu {
+    position: relative;
+}
+
+.account-popover {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    z-index: 20;
+    width: min(22rem, calc(100vw - 1rem));
+    filter: drop-shadow(0 8px 24px rgb(0 0 0 / 25%));
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s;
+}
+
+.account-popover.is-open {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .account-popover { transition: none; }
+}
+
+.account-popover .form {
+    width: 100%;
+}
+
+.account-popover::before {
+    content: '';
+    position: absolute;
+    top: -7px;
+    right: calc(var(--space) + var(--icon-sm) / 2);
+    translate: 50% 0;
+    border-width: 0 7px 7px 7px;
+    border-style: solid;
+    border-color: transparent transparent var(--color-surface) transparent;
+}

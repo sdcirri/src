@@ -120,7 +120,7 @@ describe('changeDisplayName', () => {
         expect(await changeDisplayName('Alicia')).toEqual({ ...alice, displayName: 'Alicia' });
         expect(request).toHaveBeenCalledWith('/users/me/display_name', {
             method: 'PUT',
-            body: JSON.stringify({ display_name: 'Alicia' }),
+            body: JSON.stringify({ displayName: 'Alicia' }),
         });
     });
 });
