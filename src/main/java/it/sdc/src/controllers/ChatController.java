@@ -34,7 +34,7 @@ public class ChatController {
     public List<MessageDto> getMessageHistory(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable UUID contactId,
-            @RequestParam("n") @Min(1) @Max(20) Integer pageSize,
+            @RequestParam("n") @Min(1) @Max(30) Integer pageSize,
             @RequestParam("p") @PositiveOrZero Integer pageNumber
     ) {
         return chatService.getMessages(userPrincipal.getUserId(), contactId, pageNumber, pageSize);
