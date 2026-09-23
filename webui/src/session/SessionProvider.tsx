@@ -58,7 +58,7 @@ async function bootstrap(): Promise<Session> {
         const user = await getUserInfo(crypto.id);
         return { status: 'locked', user, crypto, keys: null };
     } catch (e) {
-        if (e instanceof ApiError && e.status === 401) {
+        if (e instanceof ApiError && [401, 403].includes(e.status)) {
             try {
                 await refreshSession();
                 const crypto = await getMyCryptoSpecs();
