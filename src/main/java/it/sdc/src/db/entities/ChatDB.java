@@ -31,6 +31,7 @@ public class ChatDB {
     private UUID id;
 
     @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("timestamp asc")
     @Builder.Default
     private List<MessageDB> messages = new ArrayList<>();
 
