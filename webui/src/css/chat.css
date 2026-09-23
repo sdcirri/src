@@ -92,26 +92,41 @@
     fill: currentColor;
 }
 
+#messages-container {
+    padding: var(--input-pad);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space);
+}
+
 .message-bubble {
     display: flex;
-}
-
-.incoming {
-    justify-content: flex-start;
-    background: #f1f1f1;
-    color: #111;
-}
-
-.outgoing {
-    justify-content: flex-end;
-    background: #2563eb;
-    color: #fff;
+    width: 100%;
 }
 
 .bubble-inner {
     max-width: 70%;
+    width: fit-content;
     padding: 8px 12px;
     border-radius: 16px;
+}
+
+.incoming {
+    justify-content: flex-start;
+}
+
+.outgoing {
+    justify-content: flex-end;
+}
+
+.incoming .bubble-inner {
+    background: var(--color-surface-subtle);
+    color: var(--color-text);
+}
+
+.outgoing .bubble-inner {
+    background: var(--color-action);
+    color: var(--color-on-action);
 }
 
 .bubble-ts {

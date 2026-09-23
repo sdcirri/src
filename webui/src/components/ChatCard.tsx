@@ -47,9 +47,9 @@ function ChatCard({ chat, onSelect }: ChatCardProps) {
                 fromBase64(contactCrypto.publicX25519)
             );
             if (cancelled) return;
-            setMessagePreview(
-                decrypted.length > 20 ? decrypted.substring(0, 20) + '...' : decrypted
-            );
+            const dirChar = chat.lastMessage.direction == 'OUTGOING' ? '←' : '→';
+            const prev = decrypted.length > 20 ? decrypted.substring(0, 20) + '...' : decrypted;
+            setMessagePreview(`${dirChar} ${prev}`);
         }
 
         load();

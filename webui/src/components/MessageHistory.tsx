@@ -2,6 +2,8 @@ import type { MessageDto } from '@/api/types.ts';
 
 import MessageBubble from '@/components/MessageBubble.tsx';
 
+import '@/css/chat.css';
+
 type MessageHistoryProps = {
     messages: MessageDto[];
     myPrivateX25519: Uint8Array;
@@ -10,9 +12,14 @@ type MessageHistoryProps = {
 
 function MessageHistory({ messages, myPrivateX25519, theirPublicX25519 }: MessageHistoryProps) {
     return (
-        <div>
+        <div id='messages-container'>
             {messages.map((message) => (
-                <MessageBubble message={message} myPrivateX25519={myPrivateX25519} theirPublicX25519={theirPublicX25519} />
+                <MessageBubble
+                    key={message.iv}
+                    message={message}
+                    myPrivateX25519={myPrivateX25519}
+                    theirPublicX25519={theirPublicX25519}
+                />
             ))}
         </div>
     );

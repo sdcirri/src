@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { ChatDto, ContactCryptoDto, MessageDto, UserDto } from '@/api/types.ts';
 import { getContactCryptoSpecs, getUserInfo } from '@/api/users.ts';
-import { getChat } from '@/api/chat.ts';
+import { getChat, sendMessage } from '@/api/chat.ts';
 
 import { fromBase64 } from '@/crypto/common.ts';
 
@@ -21,7 +21,17 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     const [contact, setContact] = useState<UserDto | null>(null);
     const [contactCrypto, setContactCrypto] = useState<ContactCryptoDto | null>(null);
     const [messages, setMessages] = useState<MessageDto[]>([]);
+    const [draft, setDraft] = useState('');
     const [page, setPage] = useState(0);
+
+    async function send() {
+        const text = draft.trim();
+        if (!chat || !contact || !contactCrypto || !session.keys || !text) return;
+
+        const sent = await sendMessage(contact.id, text, session.keys, contactCrypto);
+        setMessages(prev => [...prev, sent]);
+        setDraft('');
+    }
 
     useEffect(() => {
         let cancelled = false;
@@ -44,7 +54,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
                 setContact(user);
                 setContactCrypto(crypto);
-                setMessages(history);
+                setMessages(history.toReversed());
             }
         }
 
@@ -80,8 +90,15 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
             {
                 contact &&
                     <div id='message-box'>
-                        <input type='text' id='message-input' placeholder='Write something...' />
-                        <button id='send-button'>
+                        <input
+                            type='text'
+                            id='message-input'
+                            value={draft}
+                            placeholder='Write something...'
+                            onChange={e => setDraft(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') void send(); }}
+                        />
+                        <button id='send-button' onClick={send}>
                             <SendFill />
                         </button>
                     </div>
