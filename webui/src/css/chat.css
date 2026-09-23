@@ -46,6 +46,12 @@
     flex-shrink: 0;
     height: var(--bar-height);
     padding: var(--input-pad);
+    width: auto;
+    min-width: 0;
+    margin: var(--space);
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg);
+    border-radius: 70px;
 }
 
 #message-input {
@@ -53,8 +59,9 @@
     width: 100%;
     height: 100%;
     padding: 0 1rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 70px;
+    background: transparent;
+    border: none;
+    outline: none;
     font-size: var(--form-body);
     line-height: 1;
 }

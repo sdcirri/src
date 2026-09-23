@@ -32,7 +32,13 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                     getUserInfo(chat.contactId),
                     getContactCryptoSpecs(chat.contactId)
                 ]);
-                const history = await getChat(user.id, page);
+
+                let history: MessageDto[];
+                try {
+                    history = await getChat(user.id, page);
+                } catch {
+                    history = [];
+                }
 
                 if (cancelled) return;
 
