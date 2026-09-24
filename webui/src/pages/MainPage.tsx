@@ -50,8 +50,12 @@ function MainPage() {
 
         let cancelled = false;
         const timeout = setTimeout(async () => {
-            const results = await searchUsers(q, 0);
-            if (!cancelled) setUsers(results);
+            try {
+                const results = await searchUsers(q, 0);
+                if (!cancelled) setUsers(results);
+            } catch {
+                if (!cancelled) setUsers([]);
+            }
         }, 300);
 
         return () => {
@@ -62,7 +66,7 @@ function MainPage() {
 
     const q = query.trim();
     const results = q.length >= 3 ? users : [];
-    
+
     return (
         <div id='root-container'>
             <div id='topbar'>
@@ -93,7 +97,7 @@ function MainPage() {
                     </div>
                     <ChatList chats={q === '' ? chats : asFakeChats(results)} onSelect={setCurrentChat} />
                 </div>
-                <ChatBox chat={currentChat} />
+                <ChatBox key={currentChat?.contactId ?? 'no-chat'} chat={currentChat} />
             </div>
         </div>
     )

@@ -26,6 +26,8 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     const [hasMore, setHasMore] = useState<boolean>(false);
     const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
+    const contactId = chat?.contactId;
+
     async function send() {
         const text = draft.trim();
         if (!chat || !contact || !contactCrypto || !session.keys || !text) return;
@@ -50,10 +52,10 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
         let cancelled = false;
 
         async function load() {
-            if (chat) {
+            if (contactId != null) {
                 const [user, crypto] = await Promise.all([
-                    getUserInfo(chat.contactId),
-                    getContactCryptoSpecs(chat.contactId)
+                    getUserInfo(contactId),
+                    getContactCryptoSpecs(contactId)
                 ]);
 
                 setLoadingMore(true);
@@ -79,7 +81,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
         load();
         return () => { cancelled = true; };
-    }, [chat, page]);
+    }, [contactId, page]);
 
     return (
         <div id='chat-container'>
