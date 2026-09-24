@@ -23,6 +23,8 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     const [messages, setMessages] = useState<MessageDto[]>([]);
     const [draft, setDraft] = useState('');
     const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState<boolean>(false);
+    const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
     async function send() {
         const text = draft.trim();
@@ -32,6 +34,17 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
         setMessages(prev => [...prev, sent]);
         setDraft('');
     }
+
+    function onLoadMore() {
+        setLoadingMore(true);
+        setPage(p => p + 1);
+    }
+
+    useEffect(() => {
+        setPage(0);
+        setMessages([]);
+        setHasMore(false);
+    }, [chat?.contactId]);
 
     useEffect(() => {
         let cancelled = false;
@@ -43,18 +56,24 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                     getContactCryptoSpecs(chat.contactId)
                 ]);
 
+                setLoadingMore(true);
                 let history: MessageDto[];
                 try {
                     history = await getChat(user.id, page);
+                    setHasMore(history.length === 30);
                 } catch {
                     history = [];
+                } finally {
+                    setLoadingMore(false);
                 }
 
                 if (cancelled) return;
 
                 setContact(user);
                 setContactCrypto(crypto);
-                setMessages(history.toReversed());
+                const older = history.toReversed();
+                if (page === 0) setMessages(older);
+                else setMessages(prev => [...older, ...prev]);
             }
         }
 
@@ -77,16 +96,17 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                 }
                 { contact && <p id='chat-user'>{contact.displayName ?? contact.username}</p> }
             </div>
-            <div id='chat-body'>
-                {
-                    contactCrypto?.publicX25519 && session.keys &&
-                        <MessageHistory
-                            messages={messages}
-                            myPrivateX25519={session.keys.privateX25519}
-                            theirPublicX25519={fromBase64(contactCrypto.publicX25519)}
-                        />
-                }
-            </div>
+            {
+                contactCrypto?.publicX25519 && session.keys &&
+                    <MessageHistory
+                        messages={messages}
+                        hasMore={hasMore}
+                        onLoadMore={onLoadMore}
+                        loadingMore={loadingMore}
+                        myPrivateX25519={session.keys.privateX25519}
+                        theirPublicX25519={fromBase64(contactCrypto.publicX25519)}
+                    />
+            }
             {
                 contact &&
                     <div id='message-box'>
