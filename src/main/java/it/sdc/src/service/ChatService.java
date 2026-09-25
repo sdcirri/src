@@ -93,7 +93,7 @@ public class ChatService {
         );
 
         MessageDto dto = messageMapper.toDto(message, myUserId);
-        messagingTemplate.convertAndSendToUser(contactId.toString(), "/topic/messages", dto);
+        messagingTemplate.convertAndSendToUser(contactId.toString(), "/messageQueue/messages", dto);
         return dto;
     }
 
