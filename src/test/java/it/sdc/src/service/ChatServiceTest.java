@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -82,13 +83,15 @@ class ChatServiceTest {
         messageRepository = mock(MessageDBRepository.class);
         ChatMapper chatMapper = mock(ChatMapper.class);
         messageMapper = mock(MessageMapper.class);
+        SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
 
         chatService = new ChatService(
+                messageRepository,
                 chatRepository,
                 userRepository,
-                messageRepository,
+                messageMapper,
                 chatMapper,
-                messageMapper
+                messagingTemplate
         );
     }
 

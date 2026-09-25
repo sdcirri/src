@@ -16,6 +16,7 @@ import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +29,14 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ChatService {
+    private final MessageDBRepository messageRepository;
     private final ChatDBRepository chatRepository;
     private final UserDBRepository userRepository;
-    private final MessageDBRepository messageRepository;
 
-    private final ChatMapper chatMapper;
     private final MessageMapper messageMapper;
+    private final ChatMapper chatMapper;
+
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * List user previous chats
@@ -88,7 +91,10 @@ public class ChatService {
                         .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
                         .build()
         );
-        return messageMapper.toDto(message, myUserId);
+
+        MessageDto dto = messageMapper.toDto(message, myUserId);
+        messagingTemplate.convertAndSendToUser(contactId.toString(), "/topic/messages", dto);
+        return dto;
     }
 
     /**

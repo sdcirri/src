@@ -63,7 +63,7 @@ public class TokenIntrospectionCacheTest {
         return principal.getUserId().equals(userSession.getUser().getId()) &&
                 principal.getSessionId().equals(userSession.getId()) &&
                 principal.getUsername().equals(userSession.getUser().getUsername()) &&
-                principal.getName().equals(userSession.getUser().getUsername());
+                principal.getName().equals(userSession.getUser().getId().toString());
     }
 
     @Test

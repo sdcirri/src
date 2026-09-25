@@ -40,7 +40,7 @@ public class UserPrincipal implements OAuth2AuthenticatedPrincipal {
 
     @Override
     public @Nonnull String getName() {
-        return username;
+        return userId.toString();
     }
 
     public boolean isExpired() {
