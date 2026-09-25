@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 
+import { ApiError, type UserDto, type MessageDto } from '@/api/types.ts';
 import { login, logout, refreshSession, register } from '@/api/auth.ts';
 import { getMyCryptoSpecs, getUserInfo } from '@/api/users.ts';
-import { ApiError, type UserDto } from '@/api/types.ts';
+import { connectMessages } from '@/api/ws.ts';
 
 import { decryptKeys } from '@/crypto/kek.ts';
 
@@ -16,16 +17,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         crypto: null,
         keys: null,
     });
+    const listeners = useRef(new Set<(message: MessageDto) => void>());
 
-    useEffect(() => {
-        bootstrap().then(setSession);
-    }, []);
-
-    return (
-        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut, updateUser }}>
-            {children}
-        </SessionContext.Provider>
-    );
+    function wsSubscribe(listener: (message: MessageDto) => void) {
+        listeners.current.add(listener);
+        return () => { listeners.current.delete(listener); };
+    }
 
     async function signIn(username: string, password: string) {
         await login({ username, password });                // setta i cookie
@@ -55,6 +52,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     function updateUser(user: UserDto) {
         setSession(current => ({ ...current, user }));
     }
+
+    useEffect(() => {
+        bootstrap().then(setSession);
+    }, []);
+
+    useEffect(() => {
+        if (session.status !== 'unlocked') return;
+        return connectMessages(message => {
+            listeners.current.forEach(listener => listener(message));
+        });
+    }, [session.status]);
+
+    return (
+        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut, updateUser, wsSubscribe }}>
+            {children}
+        </SessionContext.Provider>
+    );
 }
 
 async function bootstrap(): Promise<Session> {

@@ -40,6 +40,7 @@ public class MessageMapperTest {
 
         MessageDto result = messageMapper.toDto(messageDB, user1Id);
         assertThat(result).isEqualTo(new MessageDto(
+                user1Id,
                 messageTimestamp.toEpochMilli(),
                 Base64.getEncoder().encodeToString(messageData),
                 Base64.getEncoder().encodeToString(messageIv),
@@ -48,6 +49,7 @@ public class MessageMapperTest {
 
         result = messageMapper.toDto(messageDB, user2Id);
         assertThat(result).isEqualTo(new MessageDto(
+                user1Id,
                 messageTimestamp.toEpochMilli(),
                 Base64.getEncoder().encodeToString(messageData),
                 Base64.getEncoder().encodeToString(messageIv),

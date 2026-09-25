@@ -9,14 +9,21 @@ import java.util.UUID;
 
 @Component
 public class MessageMapper {
-    public MessageDto toDto(MessageDB message, UUID myUserId) {
+
+    public MessageDto toDto(MessageDB message, MessageDto.MessageDirection direction) {
         return new MessageDto(
+                message.getSender().getId(),
                 message.getTimestamp().toEpochMilli(),
                 Base64.getEncoder().encodeToString(message.getData()),
                 Base64.getEncoder().encodeToString(message.getIv()),
-                message.getSender().getId().equals(myUserId) ?
-                        MessageDto.MessageDirection.OUTGOING :
-                        MessageDto.MessageDirection.INCOMING
+                direction
+        );
+    }
+
+    public MessageDto toDto(MessageDB message, UUID myUserId) {
+        return toDto(message, message.getSender().getId().equals(myUserId) ?
+                MessageDto.MessageDirection.OUTGOING :
+                MessageDto.MessageDirection.INCOMING
         );
     }
 }

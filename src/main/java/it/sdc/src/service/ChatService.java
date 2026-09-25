@@ -92,9 +92,18 @@ public class ChatService {
                         .build()
         );
 
-        MessageDto dto = messageMapper.toDto(message, myUserId);
-        messagingTemplate.convertAndSendToUser(contactId.toString(), "/messageQueue/messages", dto);
-        return dto;
+        messagingTemplate.convertAndSendToUser(
+                contactId.toString(),
+                "/msgQueue/messages",
+                messageMapper.toDto(message, MessageDto.MessageDirection.INCOMING)
+        );
+        // to sync sender's devices in case they're using multiple (eg. multiple tabs open)
+        messagingTemplate.convertAndSendToUser(
+                myUserId.toString(),
+                "/msgQueue/messages",
+                messageMapper.toDto(message, MessageDto.MessageDirection.OUTGOING)
+        );
+        return messageMapper.toDto(message, myUserId);
     }
 
     /**

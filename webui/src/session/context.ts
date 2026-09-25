@@ -1,6 +1,6 @@
 import { createContext } from 'react';
 
-import type { UserDto } from '@/api/types.ts';
+import type { MessageDto, UserDto } from '@/api/types.ts';
 
 import type { Session } from './types.ts';
 
@@ -11,4 +11,5 @@ export const SessionContext = createContext<{
     unlock: (password: string) => Promise<void>;
     signOut: () => Promise<void>;
     updateUser: (user: UserDto) => void;
+    wsSubscribe: (listener: (message: MessageDto) => void) => void;
 } | null>(null);

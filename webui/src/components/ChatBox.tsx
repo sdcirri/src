@@ -16,7 +16,7 @@ import '@/css/main.css';
 import '@/css/chat.css';
 
 function ChatBox({ chat }: { chat: ChatDto | null }) {
-    const { session } = useSession();
+    const { session, wsSubscribe } = useSession();
 
     const [contact, setContact] = useState<UserDto | null>(null);
     const [contactCrypto, setContactCrypto] = useState<ContactCryptoDto | null>(null);
@@ -43,10 +43,11 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     }
 
     useEffect(() => {
-        setPage(0);
-        setMessages([]);
-        setHasMore(false);
-    }, [chat?.contactId]);
+        return wsSubscribe((message: MessageDto) => {
+            if (message.senderId !== contactId) return;
+            setMessages(prev => [...prev, message]);
+        });
+    }, [contactId, wsSubscribe]);
 
     useEffect(() => {
         let cancelled = false;
