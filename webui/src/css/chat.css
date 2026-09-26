@@ -27,8 +27,7 @@
     background: var(--color-surface);
 }
 
-#chat-header > img,
-#chat-header > svg {
+#chat-header > img, #chat-header > svg {
     flex-shrink: 0;
     width: var(--search-height);
     height: var(--search-height);
@@ -126,8 +125,7 @@
     filter: brightness(0.9);
 }
 
-#send-button:disabled,
-.chat-load-more:disabled {
+#send-button:disabled, .chat-load-more:disabled {
     opacity: 0.5;
     cursor: default;
 }
@@ -138,7 +136,10 @@
     fill: currentColor;
 }
 
-#message-input:focus-visible,
+#message-input:focus-visible {
+    outline: none;
+}
+
 #send-button:focus-visible,
 .chat-load-more:focus-visible,
 .chat-error button:focus-visible {
