@@ -1,4 +1,4 @@
-# 🚧🏗️ [WIP] 𝑆pring 𝑅eact 𝐶hat - an E2EE, cross-device chat that runs entirely in your browser
+# 🚧🏗️ [WIP] 𝑆pring 𝑅eact 𝐶hat - an E2EE, cross-device chat that runs (almost) entirely in your browser
 
 SRC is an end-to-end encrypted chat application designed to run as a web application across
 a variety of devices.
