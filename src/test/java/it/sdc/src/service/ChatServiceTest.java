@@ -256,6 +256,7 @@ class ChatServiceTest {
             UUID userId = (UUID) invocation.getArguments()[1];
             return new MessageDto(
                     message.getSender().getId(),
+                    message.getChat().getId(),
                     message.getTimestamp().toEpochMilli(),
                     ENCODER.encodeToString(message.getData()),
                     ENCODER.encodeToString(message.getIv()),

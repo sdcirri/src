@@ -10,13 +10,14 @@ import Logout from '@material-symbols/svg-400/outlined/logout.svg?react';
 import Search from '@material-symbols/svg-400/rounded/search.svg?react';
 
 import { useSession } from '@/session/useSession.ts';
+
+import AccountPopover from '@/components/AccountPopover.tsx';
 import ChatList from '@/components/ChatList.tsx';
 import ChatBox from '@/components/ChatBox.tsx';
 
 import '@/css/sidebar.css';
 import '@/css/topbar.css';
 import '@/css/main.css';
-import AccountPopover from "@/components/AccountPopover.tsx";
 
 function asFakeChats(users: UserDto[]): ChatDto[] {
     return users.map(u => {
@@ -26,7 +27,7 @@ function asFakeChats(users: UserDto[]): ChatDto[] {
 
 function MainPage() {
     const navigate = useNavigate();
-    const { signOut } = useSession();
+    const { signOut, wsSubscribe } = useSession();
 
     const [currentChat, setCurrentChat] = useState<ChatDto | null>(null);
     const [chats, setChats] = useState<ChatDto[]>([]);
@@ -43,6 +44,29 @@ function MainPage() {
         getChats().then((list) => { if (!cancelled) setChats(list); });
         return () => { cancelled = true; };
     }, []);
+
+    useEffect(() => {
+        return wsSubscribe((message) => {
+            setChats(prev => {
+                const idx = prev.findIndex(c => c.chatId === message.chatId);
+                if (idx >= 0) {
+                    const updated = { ...prev[idx], lastMessage: message };
+                    return [updated, ...prev.filter(c => c.chatId !== message.chatId)];
+                }
+
+                const contactId = message.direction === 'INCOMING'
+                    ? message.senderId
+                    : currentChat?.chatId ? undefined : currentChat?.contactId;
+                if (!contactId) return prev;
+
+                return [{
+                    chatId: message.chatId,
+                    contactId,
+                    lastMessage: message,
+                }, ...prev];
+            });
+        });
+    }, [wsSubscribe, currentChat]);
 
     useEffect(() => {
         const q = query.trim();
@@ -70,7 +94,7 @@ function MainPage() {
     return (
         <div id='root-container'>
             <div id='topbar'>
-                <div id='topbar-title'><Security/><h1>S R C</h1></div>
+                <div id='topbar-title'><Security /><h1>S R C</h1></div>
                 <span id='topbar-spacer'/>
                 <AccountPopover />
                 <button

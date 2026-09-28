@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record MessageDto(
         @NotNull UUID senderId,
+        @NotNull UUID chatId,
         @NotNull @Positive Long timestamp,
         @NotNull @Base64String String data,
         @NotNull @Base64String String iv,
