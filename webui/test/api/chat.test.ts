@@ -30,6 +30,8 @@ describe('getChat', () => {
 
     it('posts the contact history with the given page', async () => {
         const messages: MessageDto[] = [{
+            senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
+            chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
             timestamp: 1,
             data: 'wire-data',
             iv: 'wire-iv',
@@ -59,6 +61,8 @@ describe('getChats', () => {
             chatId: 'chat-1',
             contactId: 'contact-1',
             lastMessage: {
+                senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
+                chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
                 timestamp: 1,
                 data: 'wire-data',
                 iv: 'wire-iv',
@@ -81,6 +85,8 @@ describe('sendMessage', () => {
         const alice = generateX25519KeyPair();
         const bob = generateX25519KeyPair();
         const sent: MessageDto = {
+            senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
+            chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
             timestamp: 1,
             data: 'wire-data',
             iv: 'wire-iv',
