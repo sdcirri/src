@@ -74,37 +74,37 @@ beforeEach(() => {
 
 describe('connectMessages', () => {
 
-    it('usa ws:// quando la pagina è HTTP', async () => {
+    it('uses ws:// when the page is HTTP', async () => {
         const connectMessages = await loadConnectMessages('http:', 'chat.example.test');
         connectMessages(vi.fn());
         expect(currentConfig().brokerURL).toBe('ws://chat.example.test/api/ws');
     });
 
-    it('usa wss:// quando la pagina è HTTPS', async () => {
+    it('uses wss:// when the page is HTTPS', async () => {
         const connectMessages = await loadConnectMessages('https:', 'chat.example.test');
         connectMessages(vi.fn());
         expect(currentConfig().brokerURL).toBe('wss://chat.example.test/api/ws');
     });
 
-    it('configura reconnectDelay a 5000 ms', async () => {
+    it('sets reconnectDelay to 5000 ms', async () => {
         const connectMessages = await loadConnectMessages();
         connectMessages(vi.fn());
         expect(currentConfig().reconnectDelay).toBe(5000);
     });
 
-    it('attiva immediatamente il client STOMP', async () => {
+    it('activates the STOMP client immediately', async () => {
         const connectMessages = await loadConnectMessages();
         connectMessages(vi.fn());
         expect(currentClient().activate).toHaveBeenCalledTimes(1);
     });
 
-    it('non effettua la subscription prima della connessione STOMP', async () => {
+    it('does not subscribe before the STOMP connection', async () => {
         const connectMessages = await loadConnectMessages();
         connectMessages(vi.fn());
         expect(currentClient().subscribe).not.toHaveBeenCalled();
     });
 
-    it('si sottoscrive alla destination corretta dopo onConnect', async () => {
+    it('subscribes to the correct destination after onConnect', async () => {
         const connectMessages = await loadConnectMessages();
         connectMessages(vi.fn());
         currentConfig().onConnect({} as IFrame);
@@ -116,7 +116,7 @@ describe('connectMessages', () => {
         );
     });
 
-    it('parsa il body JSON e passa il MessageDto a onMessage', async () => {
+    it('parses the JSON body and passes the MessageDto to onMessage', async () => {
         const connectMessages = await loadConnectMessages();
         const onMessage = vi.fn();
         connectMessages(onMessage);
@@ -136,7 +136,7 @@ describe('connectMessages', () => {
         expect(onMessage).toHaveBeenCalledWith(dto);
     });
 
-    it('consegna più messaggi nello stesso ordine in cui arrivano', async () => {
+    it('delivers multiple messages in the order they arrive', async () => {
         const connectMessages = await loadConnectMessages();
         const received: MessageDto[] = [];
 
@@ -163,7 +163,7 @@ describe('connectMessages', () => {
         expect(received).toEqual([first, second]);
     });
 
-    it('risottoscrive la queue quando STOMP si riconnette', async () => {
+    it('resubscribes to the queue when STOMP reconnects', async () => {
         const connectMessages = await loadConnectMessages();
         connectMessages(vi.fn());
 
@@ -185,7 +185,7 @@ describe('connectMessages', () => {
         );
     });
 
-    it('chiama deactivate quando viene eseguito il cleanup', async () => {
+    it('calls deactivate when cleanup runs', async () => {
         const connectMessages = await loadConnectMessages();
 
         const disconnect = connectMessages(vi.fn());
@@ -194,7 +194,7 @@ describe('connectMessages', () => {
         expect(currentClient().deactivate).toHaveBeenCalledTimes(1);
     });
 
-    it('può essere disattivato anche prima che onConnect venga chiamato', async () => {
+    it('can be deactivated before onConnect is called', async () => {
         const connectMessages = await loadConnectMessages();
 
         const disconnect = connectMessages(vi.fn());
@@ -204,7 +204,7 @@ describe('connectMessages', () => {
         expect(currentClient().deactivate).toHaveBeenCalledTimes(1);
     });
 
-    it('non chiama onMessage se il JSON è malformato', async () => {
+    it('does not call onMessage when the JSON is malformed', async () => {
         const connectMessages = await loadConnectMessages();
         const onMessage = vi.fn();
         connectMessages(onMessage);
@@ -218,7 +218,7 @@ describe('connectMessages', () => {
         expect(onMessage).not.toHaveBeenCalled();
     });
 
-    it('propaga eventuali errori lanciati da onMessage', async () => {
+    it('propagates errors thrown by onMessage', async () => {
         const connectMessages = await loadConnectMessages();
         const expectedError = new Error('consumer failure');
 
