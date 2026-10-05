@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build-prod": "tsc -b && vite build --mode production",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "tsc -b && vitest run",
+    "test:coverage": "tsc -b && vitest run --coverage",
     "lint": "eslint ",
     "preview": "vite preview"
   },
