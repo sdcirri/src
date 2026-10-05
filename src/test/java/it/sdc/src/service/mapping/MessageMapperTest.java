@@ -50,6 +50,7 @@ public class MessageMapperTest {
 
         MessageDto result = messageMapper.toDto(messageDB, user1Id);
         assertThat(result).isEqualTo(new MessageDto(
+                messageId,
                 user1Id,
                 chatId,
                 messageTimestamp.toEpochMilli(),
@@ -60,6 +61,7 @@ public class MessageMapperTest {
 
         result = messageMapper.toDto(messageDB, user2Id);
         assertThat(result).isEqualTo(new MessageDto(
+                messageId,
                 user1Id,
                 chatId,
                 messageTimestamp.toEpochMilli(),

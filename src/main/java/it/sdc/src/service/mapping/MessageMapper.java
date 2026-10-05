@@ -12,6 +12,7 @@ public class MessageMapper {
 
     public MessageDto toDto(MessageDB message, MessageDto.MessageDirection direction) {
         return new MessageDto(
+                message.getId(),
                 message.getSender().getId(),
                 message.getChat().getId(),
                 message.getTimestamp().toEpochMilli(),

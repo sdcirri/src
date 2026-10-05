@@ -10,6 +10,7 @@ export class ApiError extends Error {
 }
 
 export type MessageDto = {
+    id: string;
     senderId: string;
     chatId: string;
     timestamp: number;

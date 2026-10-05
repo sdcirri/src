@@ -30,6 +30,7 @@ describe('getChat', () => {
 
     it('posts the contact history with the given page', async () => {
         const messages: MessageDto[] = [{
+            id: '3785eb96-d74b-4dd0-8307-f126fc59a20f',
             senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
             chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
             timestamp: 1,
@@ -39,15 +40,15 @@ describe('getChat', () => {
         }];
         request.mockResolvedValue(messages);
 
-        expect(await getChat('contact-1', 2)).toEqual(messages);
-        expect(request).toHaveBeenCalledWith('/chats/contact-1?n=30&p=2');
+        expect(await getChat('6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412', 2)).toEqual(messages);
+        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30&p=2');
     });
 
     it('defaults pageNumber to 0', async () => {
         request.mockResolvedValue([]);
 
-        expect(await getChat('contact-1')).toEqual([]);
-        expect(request).toHaveBeenCalledWith('/chats/contact-1?n=30&p=0');
+        expect(await getChat('6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412')).toEqual([]);
+        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30&p=0');
     });
 });
 
@@ -58,9 +59,10 @@ describe('getChats', () => {
 
     it('gets the current user chat list', async () => {
         const chats: ChatDto[] = [{
-            chatId: 'chat-1',
-            contactId: 'contact-1',
+            chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
+            contactId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
             lastMessage: {
+                id: '3785eb96-d74b-4dd0-8307-f126fc59a20f',
                 senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
                 chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
                 timestamp: 1,
@@ -85,6 +87,7 @@ describe('sendMessage', () => {
         const alice = generateX25519KeyPair();
         const bob = generateX25519KeyPair();
         const sent: MessageDto = {
+            id: '3785eb96-d74b-4dd0-8307-f126fc59a20f',
             senderId: '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
             chatId: 'a8d47f35-1c62-4be9-b7d3-92f6c10e548a',
             timestamp: 1,
@@ -99,11 +102,14 @@ describe('sendMessage', () => {
             publicX25519: toBase64(bob.publicKey),
         };
 
-        expect(
-            await sendMessage('contact-1', 'hello from alice', ownSpecs(alice.privateKey, alice.publicKey), contact),
-        ).toEqual(sent);
+        expect(await sendMessage(
+                'a37201a4-b7b8-4d6b-b2e8-b5dd34e1ead0',
+                'hello from alice',
+                ownSpecs(alice.privateKey, alice.publicKey),
+                contact
+            ),).toEqual(sent);
 
-        expect(request).toHaveBeenCalledWith('/chats/contact-1', {
+        expect(request).toHaveBeenCalledWith('/chats/a37201a4-b7b8-4d6b-b2e8-b5dd34e1ead0', {
             method: 'POST',
             body: expect.any(String),
         });

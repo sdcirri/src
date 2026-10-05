@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Positive;
 import java.util.UUID;
 
 public record MessageDto(
+        @NotNull UUID id,
         @NotNull UUID senderId,
         @NotNull UUID chatId,
         @NotNull @Positive Long timestamp,

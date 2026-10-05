@@ -84,7 +84,7 @@ function MessageHistory({ messages, hasMore, loadingMore, onLoadMore, myPrivateX
             )}
             <div className='chat-messages' ref={listRef}>
                 {messages.map(message => (
-                    <div className='chat-message' data-message-id={message.iv} key={message.iv}>
+                    <div className='chat-message' data-message-id={message.id} key={message.id}>
                         <MessageBubble message={message} myPrivateX25519={myPrivateX25519} theirPublicX25519={theirPublicX25519} />
                     </div>
                 ))}
