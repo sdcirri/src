@@ -1,7 +1,6 @@
 package it.sdc.src.service;
 
 import it.sdc.src.auth.TokenIntrospectionCache;
-import it.sdc.src.auth.UserPrincipal;
 import it.sdc.src.config.AuthProperties;
 import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
@@ -17,7 +16,6 @@ import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
