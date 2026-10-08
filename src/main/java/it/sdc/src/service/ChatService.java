@@ -19,6 +19,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.Base64;
@@ -91,17 +93,26 @@ public class ChatService {
                         .iv(Base64.getDecoder().decode(messageRequest.messageIV()))
                         .build()
         );
+        MessageDto incomingMessage = messageMapper.toDto(message, MessageDto.MessageDirection.INCOMING);
+        MessageDto outgoingMessage = messageMapper.toDto(message, MessageDto.MessageDirection.OUTGOING);
 
-        messagingTemplate.convertAndSendToUser(
-                contactId.toString(),
-                "/msgQueue/messages",
-                messageMapper.toDto(message, MessageDto.MessageDirection.INCOMING)
-        );
-        // to sync sender's devices in case they're using multiple (eg. multiple tabs open)
-        messagingTemplate.convertAndSendToUser(
-                myUserId.toString(),
-                "/msgQueue/messages",
-                messageMapper.toDto(message, MessageDto.MessageDirection.OUTGOING)
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        messagingTemplate.convertAndSendToUser(
+                                contactId.toString(),
+                                "/msgQueue/messages",
+                                incomingMessage
+                        );
+                        // to sync sender's devices in case they're using multiple (eg. multiple tabs open)
+                        messagingTemplate.convertAndSendToUser(
+                                myUserId.toString(),
+                                "/msgQueue/messages",
+                                outgoingMessage
+                        );
+                    }
+                }
         );
         return messageMapper.toDto(message, myUserId);
     }

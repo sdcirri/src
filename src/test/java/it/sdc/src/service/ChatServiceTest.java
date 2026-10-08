@@ -13,12 +13,14 @@ import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -93,6 +95,16 @@ class ChatServiceTest {
                 chatMapper,
                 messagingTemplate
         );
+    }
+
+    @BeforeEach
+    void setUpTransactionSynchronization() {
+        TransactionSynchronizationManager.initSynchronization();
+    }
+
+    @AfterEach
+    void clearTransactionSynchronization() {
+        TransactionSynchronizationManager.clearSynchronization();
     }
 
     @Test
