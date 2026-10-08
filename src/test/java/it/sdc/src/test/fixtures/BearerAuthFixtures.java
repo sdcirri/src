@@ -79,23 +79,23 @@ public final class BearerAuthFixtures {
 
     private static SessionFixture register(SessionFixture fixture) {
         FIXTURES_BY_SESSION.put(fixture.session(), fixture);
-        if (fixture.session().getId() != null) {
+        if (fixture.session().getId() != null)
             FIXTURES_BY_SESSION_ID.put(fixture.session().getId(), fixture);
-        }
+
         return fixture;
     }
 
     private static SessionFixture requireFixture(UserSessionDB session) {
         SessionFixture fixture = FIXTURES_BY_SESSION.get(session);
-        if (fixture == null && session.getId() != null) {
+        if (fixture == null && session.getId() != null)
             fixture = FIXTURES_BY_SESSION_ID.get(session.getId());
-        }
-        if (fixture == null) {
+
+        if (fixture == null)
             throw new IllegalStateException("Unknown session fixture");
-        }
-        if (session.getId() != null) {
+
+        if (session.getId() != null)
             FIXTURES_BY_SESSION_ID.putIfAbsent(session.getId(), fixture);
-        }
+
         return fixture;
     }
 
