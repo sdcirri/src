@@ -2,6 +2,7 @@ package it.sdc.src.db.repositories;
 
 import it.sdc.src.db.entities.UserSessionDB;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,5 +27,9 @@ public interface UserSessionDBRepository extends JpaRepository<UserSessionDB, UU
 
     List<UserSessionDB> findAllByUser_Id(UUID userId);
 
-    void deleteAllByUser_Id(UUID userId);
+    @Query("""
+        DELETE FROM UserSessionDB s WHERE s.refreshTokenExpires < CURRENT_TIMESTAMP
+    """)
+    @Modifying
+    void clearExpiredSessions();
 }
