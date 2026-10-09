@@ -11,7 +11,7 @@ function ChatList({ chats, onSelect }: ChatListProps) {
     return (
         <div>
             {chats.map((chat) => (
-                <ChatCard key={chat.chatId} chat={chat} onSelect={onSelect} />
+                <ChatCard key={chat.chatId || chat.contactId} chat={chat} onSelect={onSelect} />
             ))}
         </div>
     );
