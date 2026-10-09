@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { ChatDto, UserDto } from '@/api/types.ts';
@@ -34,10 +34,16 @@ function MainPage() {
     const [users, setUsers] = useState<UserDto[]>([]);
     const [query, setQuery] = useState('');
 
+    const chatsRef = useRef<ChatDto[]>([]);
+
     async function onSignOut() {
         await signOut();
         navigate('/login', { replace: true });
     }
+
+    useEffect(() => {
+        chatsRef.current = chats;
+    }, [chats]);
 
     useEffect(() => {
         let cancelled = false;
@@ -47,26 +53,30 @@ function MainPage() {
 
     useEffect(() => {
         return wsSubscribe((message) => {
-            setChats(prev => {
-                const idx = prev.findIndex(c => c.chatId === message.chatId);
-                if (idx >= 0) {
-                    const updated = { ...prev[idx], lastMessage: message };
-                    return [updated, ...prev.filter(c => c.chatId !== message.chatId)];
-                }
+            const existing = chatsRef.current.find(
+                c => c.chatId === message.chatId
+            );
 
-                const contactId = message.direction === 'INCOMING'
-                    ? message.senderId
-                    : currentChat?.chatId ? undefined : currentChat?.contactId;
-                if (!contactId) return prev;
-
-                return [{
-                    chatId: message.chatId,
-                    contactId,
-                    lastMessage: message,
-                }, ...prev];
-            });
+            if (existing) {
+                setChats(prev => {
+                    return [
+                        {...existing, lastMessage: message},
+                        ...prev.filter(c => c.chatId !== message.chatId),
+                    ];
+                });
+            } else {
+                getChats().then(list => {
+                    setChats(list);
+                    setCurrentChat(current => {
+                        if (!current || current.chatId) return current;
+                        return list.find(
+                            chat => chat.contactId === current.contactId
+                        ) ?? current;
+                    });
+                });
+            }
         });
-    }, [wsSubscribe, currentChat]);
+    }, [wsSubscribe]);
 
     useEffect(() => {
         const q = query.trim();
