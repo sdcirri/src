@@ -146,6 +146,14 @@ public class AuthService {
 
         tokenIntrospectionCache.evict(session);
         userSessionRepository.delete(session);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        tokenIntrospectionCache.evict(session);
+                    }
+                }
+        );
         return yieldSession(session.getUser());
     }
 
@@ -233,6 +241,14 @@ public class AuthService {
 
         tokenIntrospectionCache.evictAll(oldSessions);
         userSessionRepository.deleteAll(oldSessions);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        tokenIntrospectionCache.evictAll(oldSessions);
+                    }
+                }
+        );
         return newSession;
     }
 }
