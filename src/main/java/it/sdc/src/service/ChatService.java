@@ -15,6 +15,7 @@ import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ChatService {
     private final MessageDBRepository messageRepository;
@@ -100,17 +102,21 @@ public class ChatService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        messagingTemplate.convertAndSendToUser(
-                                contactId.toString(),
-                                "/msgQueue/messages",
-                                incomingMessage
-                        );
-                        // to sync sender's devices in case they're using multiple (eg. multiple tabs open)
-                        messagingTemplate.convertAndSendToUser(
-                                myUserId.toString(),
-                                "/msgQueue/messages",
-                                outgoingMessage
-                        );
+                        try {
+                            messagingTemplate.convertAndSendToUser(
+                                    contactId.toString(),
+                                    "/msgQueue/messages",
+                                    incomingMessage
+                            );
+                            // to sync sender's devices in case they're using multiple (eg. multiple tabs open)
+                            messagingTemplate.convertAndSendToUser(
+                                    myUserId.toString(),
+                                    "/msgQueue/messages",
+                                    outgoingMessage
+                            );
+                        } catch (RuntimeException e) {
+                            log.error("Failed to publish websocket event for message {}", outgoingMessage.id(), e);
+                        }
                     }
                 }
         );
