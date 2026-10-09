@@ -28,12 +28,31 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
     const contactId = chat?.contactId;
 
+    function mergeMessage(prev: MessageDto[], incoming: MessageDto): MessageDto[] {
+        if (prev.some(m => m.id === incoming.id))
+            return prev;
+        return [...prev, incoming];
+    }
+
+    function mergeMessages(first: MessageDto[], second: MessageDto[]): MessageDto[] {
+        const seen = new Set<string>();
+        const merged: MessageDto[] = [];
+
+        for (const message of [...first, ...second]) {
+            if (seen.has(message.id)) continue;
+            seen.add(message.id);
+            merged.push(message);
+        }
+
+        return merged;
+    }
+
     async function send() {
         const text = draft.trim();
         if (!chat || !contact || !contactCrypto || !session.keys || !text) return;
 
         const sent = await sendMessage(contact.id, text, session.keys, contactCrypto);
-        setMessages(prev => [...prev, sent]);
+        setMessages(prev => mergeMessage(prev, sent));
         setDraft('');
     }
 
@@ -44,10 +63,10 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
     useEffect(() => {
         return wsSubscribe((message: MessageDto) => {
-            if (message.senderId !== contactId) return;
-            setMessages(prev => [...prev, message]);
+            if (message.chatId !== chat?.chatId) return;
+            setMessages(prev => mergeMessage(prev, message));
         });
-    }, [contactId, wsSubscribe]);
+    }, [chat?.chatId, wsSubscribe]);
 
     useEffect(() => {
         let cancelled = false;
@@ -76,7 +95,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                 setContactCrypto(crypto);
                 const older = history.toReversed();
                 if (page === 0) setMessages(older);
-                else setMessages(prev => [...older, ...prev]);
+                else setMessages(prev => mergeMessages(older, prev));
             }
         }
 
