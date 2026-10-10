@@ -221,9 +221,11 @@ public class AuthService {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
         );
-        if (passwordEncoder.matches(request.password(), user.getPasswordHash()))
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash()))
+            throw new BadPasswordException("Old password is not correct");
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash()))
             throw new PasswordConflictException("New password should not be the same as the old password");
-        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 
         Base64.Decoder decoder = Base64.getDecoder();
         UserCryptoDB crypto = user.getCrypto();

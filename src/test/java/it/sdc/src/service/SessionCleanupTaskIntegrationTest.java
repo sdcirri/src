@@ -19,9 +19,9 @@ import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Testcontainers
 @ActiveProfiles("test")
 @SpringBootTest
-@Testcontainers
 public class SessionCleanupTaskIntegrationTest {
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18.1");

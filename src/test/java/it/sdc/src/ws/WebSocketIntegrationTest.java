@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUser;
 import static org.assertj.core.api.Assertions.*;
+import static org.awaitility.Awaitility.await;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -137,6 +138,30 @@ public class WebSocketIntegrationTest {
         assertThatThrownBy(() -> connect(null))
                 .isInstanceOf(ExecutionException.class)
                 .hasMessageContaining("401");
+    }
+
+    @Test
+    void connect_rejectsArbitrarySubscriptions() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = userSessionRepository.save(mockSession(user));
+
+        StompSession stompSession = connect(encodedPlainAccessToken(session));
+        assertThat(stompSession.isConnected()).isTrue();
+
+        stompSession.subscribe("/whatever", new TestStompFrameHandler(new LinkedBlockingQueue<>()));
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> !stompSession.isConnected());
+    }
+
+    @Test
+    void send_isNotAllowed() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = userSessionRepository.save(mockSession(user));
+
+        StompSession stompSession = connect(encodedPlainAccessToken(session));
+        stompSession.send("/user/msgQueue/messages", new Object());
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> !stompSession.isConnected());
     }
 
     @Test

@@ -50,9 +50,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+@Testcontainers
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 @AutoConfigureMockMvc
 public class AuthControllerIntegrationTest {
     @Container
@@ -85,8 +85,9 @@ public class AuthControllerIntegrationTest {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
-    private static PasswordChangeRequest mockPasswordChangeRequest(String newPassword) {
+    private static PasswordChangeRequest mockPasswordChangeRequest(String oldPassword, String newPassword) {
         return new PasswordChangeRequest(
+                oldPassword,
                 newPassword,
                 ENCODER.encodeToString(new byte[] {2}),
                 ENCODER.encodeToString(new byte[] {3, 4, 5}),
@@ -123,7 +124,12 @@ public class AuthControllerIntegrationTest {
     }
 
     private static Stream<PasswordChangeRequest> invalidPasswordChangeRequests() {
-        return Stream.of(mockPasswordChangeRequest(""), mockPasswordChangeRequest(null));
+        return Stream.of(
+                mockPasswordChangeRequest("", ""),
+                mockPasswordChangeRequest(null, null),
+                mockPasswordChangeRequest(null, ""),
+                mockPasswordChangeRequest("", null)
+        );
     }
 
     private static void assertAuthSessionCookies(MvcResult result) {
@@ -512,7 +518,7 @@ public class AuthControllerIntegrationTest {
         assertThat(passwordEncoder.matches(USER_PASSWORD, user.getPasswordHash())).isTrue();
 
         String newPassword = "P@$$w0rd.123!!!";
-        PasswordChangeRequest request = mockPasswordChangeRequest(newPassword);
+        PasswordChangeRequest request = mockPasswordChangeRequest(USER_PASSWORD, newPassword);
         MvcResult result = mockMvc.perform(
                 post("/auth/me/password")
                         .with(csrf())
@@ -542,6 +548,24 @@ public class AuthControllerIntegrationTest {
     }
 
     @Test
+    void changePassword_shouldRejectIfOldPasswordDoesNotMatch() throws Exception {
+        userRepository.deleteAll();
+        sessionRepository.deleteAll();
+
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        assertThat(passwordEncoder.matches(USER_PASSWORD, user.getPasswordHash())).isTrue();
+        mockMvc.perform(
+                post("/auth/me/password")
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest("whatever", USER_PASSWORD)))
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
     void changePassword_shouldRejectOldPassword() throws Exception {
         userRepository.deleteAll();
         sessionRepository.deleteAll();
@@ -555,7 +579,7 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                         .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(USER_PASSWORD)))
+                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(USER_PASSWORD, USER_PASSWORD)))
         ).andExpect(status().isConflict());
     }
 
@@ -597,7 +621,7 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                         .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(badPassword)))
+                        .content(objectMapper.writeValueAsString(mockPasswordChangeRequest(USER_PASSWORD, badPassword)))
         ).andExpect(status().isBadRequest());
     }
 }

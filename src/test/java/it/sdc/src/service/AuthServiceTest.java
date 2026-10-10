@@ -99,10 +99,10 @@ public class AuthServiceTest {
 
         when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
 
-        when(passwordEncoder.encode("password")).thenReturn("passwordHash");
-        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword")).thenReturn("passwordHash");
+        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
 
-        UserSessionDto result = authService.login("username", "password");
+        UserSessionDto result = authService.login("username", "newPassword");
         ArgumentCaptor<UserSessionDB> captor = ArgumentCaptor.forClass(UserSessionDB.class);
         verify(userSessionRepository).save(captor.capture());
 
@@ -148,7 +148,7 @@ public class AuthServiceTest {
         UserDB user = mock(UserDB.class);
         when(user.getPasswordHash()).thenReturn("passwordHash");
         when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
+        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
         when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
             UserSessionDB session = invocation.getArgument(0);
             return UserSessionDB.builder()
@@ -161,7 +161,7 @@ public class AuthServiceTest {
                     .build();
         });
 
-        UserSessionDto result = service.login("username", "password");
+        UserSessionDto result = service.login("username", "newPassword");
 
         assertThat(result.accessToken()).isNotBlank();
         assertThat(result.refreshToken()).isNotBlank();
@@ -183,10 +183,10 @@ public class AuthServiceTest {
         when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
         when(userRepository.findByUsername("badusername")).thenReturn(Optional.empty());
 
-        when(passwordEncoder.encode("password")).thenReturn("passwordHash");
-        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword")).thenReturn("passwordHash");
+        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.login("badusername", "password"))
+        assertThatThrownBy(() -> authService.login("badusername", "newPassword"))
                 .isInstanceOf(LoginFailedException.class)
                 .hasMessage("Invalid username")
         ;
@@ -242,8 +242,8 @@ public class AuthServiceTest {
 
     @Test
     void register_shouldInitializeRegistration() {
-        when(passwordEncoder.encode("password")).thenReturn("passwordHash");
-        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
+        when(passwordEncoder.encode("newPassword")).thenReturn("passwordHash");
+        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
 
         when(userRepository.save(any(UserDB.class))).thenAnswer(invocation -> {
             UserDB user = invocation.getArgument(0);
@@ -267,7 +267,7 @@ public class AuthServiceTest {
                     .build();
         });
 
-        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "password");
+        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
         UserSessionDto result = authService.register(request);
 
         ArgumentCaptor<UserDB> userCaptor = ArgumentCaptor.forClass(UserDB.class);
@@ -293,7 +293,7 @@ public class AuthServiceTest {
         assertThat(result.accessToken()).isNotBlank();
         assertThat(result.refreshToken()).isNotBlank();
 
-        verify(passwordEncoder).encode("password");
+        verify(passwordEncoder).encode("newPassword");
         verify(userRepository, never()).findByUsername(any());
     }
 
@@ -301,7 +301,7 @@ public class AuthServiceTest {
     void register_shouldFailIfUsernameAlreadyTaken() {
         when(userRepository.existsByUsername("username")).thenReturn(true);
 
-        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "password");
+        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
 
         assertThatThrownBy(() -> authService.register(request)).isInstanceOf(UsernameAlreadyTakenException.class);
     }
@@ -322,9 +322,10 @@ public class AuthServiceTest {
         );
     }
 
-    private PasswordChangeRequest validPasswordChangeRequest() {
+    private PasswordChangeRequest validPasswordChangeRequest(String oldPassword, String newPassword) {
         return new PasswordChangeRequest(
-                "newPassword",
+                oldPassword,
+                newPassword,
                 b64((byte) 1, (byte) 2, (byte) 3),    // kekSalt
                 b64((byte) 10, (byte) 11),            // privateEd25519Crypto
                 b64((byte) 20, (byte) 21),            // privateEd25519IV
@@ -400,6 +401,8 @@ public class AuthServiceTest {
         UUID userId = UUID.randomUUID();
         UserDB user = mock(UserDB.class);
         UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
+        String oldPassword = "oldPassword", newPassword = "newPassword";
+        when(user.getPasswordHash()).thenReturn("oldPasswordHash");
 
         List<UserSessionDB> userSessions = new ArrayList<>(List.of(mock(UserSessionDB.class), mock(UserSessionDB.class)));
         when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(_ -> new ArrayList<>(userSessions));
@@ -436,10 +439,12 @@ public class AuthServiceTest {
                     .build();
         });
 
-        when(passwordEncoder.encode("newPassword")).thenReturn("newPasswordHash");
-        when(passwordEncoder.matches("newPassword", "newPasswordHash")).thenReturn(true);
+        when(passwordEncoder.encode(oldPassword)).thenReturn("oldPasswordHash");
+        when(passwordEncoder.encode(newPassword)).thenReturn("newPasswordHash");
+        when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(true);
+        when(passwordEncoder.matches(newPassword, "newPasswordHash")).thenReturn(true);
 
-        PasswordChangeRequest request = validPasswordChangeRequest();
+        PasswordChangeRequest request = validPasswordChangeRequest(oldPassword, newPassword);
         UserSessionDto result = authService.changePassword(userId, request);
 
         ArgumentCaptor<UserSessionDB> sessionCaptor = ArgumentCaptor.forClass(UserSessionDB.class);
@@ -462,21 +467,45 @@ public class AuthServiceTest {
     void changePassword_shouldFailIfUserNotFound() {
         UUID userId = UUID.randomUUID();
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> authService.changePassword(userId, validPasswordChangeRequest())).isInstanceOf(UserNotFoundException.class);
+        assertThatThrownBy(
+                () -> authService.changePassword(userId, validPasswordChangeRequest("old", "new"))
+        ).isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    void changePassword_shouldFailIfOldPasswordDoesNotMatch() {
+        UUID userId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        String oldPassword = "oldPassword", newPassword = "newPassword";
+        when(user.getId()).thenReturn(userId);
+        when(user.getPasswordHash()).thenReturn("oldPasswordHash");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        when(passwordEncoder.encode(oldPassword)).thenReturn("oldPasswordHash");
+        when(passwordEncoder.encode(newPassword)).thenReturn("newPasswordHash");
+        when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(false);
+        when(passwordEncoder.matches(newPassword, "newPasswordHash")).thenReturn(true);
+
+        assertThatThrownBy(
+                () -> authService.changePassword(userId, validPasswordChangeRequest(oldPassword, newPassword))
+        ).isInstanceOf(BadPasswordException.class);
     }
 
     @Test
     void changePassword_shouldFailIfPasswordIdentical() {
         UUID userId = UUID.randomUUID();
         UserDB user = mock(UserDB.class);
+        String oldPassword = "oldPassword";
         when(user.getId()).thenReturn(userId);
-        when(user.getPasswordHash()).thenReturn("newPasswordHash");
+        when(user.getPasswordHash()).thenReturn("oldPasswordHash");
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        when(passwordEncoder.encode("newPassword")).thenReturn("newPasswordHash");
-        when(passwordEncoder.matches("newPassword", "newPasswordHash")).thenReturn(true);
+        when(passwordEncoder.encode(oldPassword)).thenReturn("oldPasswordHash");
+        when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.changePassword(userId, validPasswordChangeRequest())).isInstanceOf(PasswordConflictException.class);
+        assertThatThrownBy(
+                () -> authService.changePassword(userId, validPasswordChangeRequest(oldPassword, oldPassword))
+        ).isInstanceOf(PasswordConflictException.class);
     }
 
     @Test
