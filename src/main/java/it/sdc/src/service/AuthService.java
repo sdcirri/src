@@ -15,6 +15,7 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
+import it.sdc.src.ws.WebSocketSessionRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class AuthService {
 
     private final UserCryptoMapper userCryptoMapper;
 
+    private final WebSocketSessionRegistry webSocketSessionRegistry;
     private final TokenIntrospectionCache tokenIntrospectionCache;
 
     private final AuthProperties authProperties;
@@ -126,6 +128,7 @@ public class AuthService {
                     @Override
                     public void afterCommit() {
                         tokenIntrospectionCache.evict(session);
+                        webSocketSessionRegistry.revoke(session.getId());
                     }
                 }
         );

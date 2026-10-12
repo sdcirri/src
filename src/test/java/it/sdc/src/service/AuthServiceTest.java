@@ -15,6 +15,7 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
 import it.sdc.src.service.mapping.UserCryptoMapper;
+import it.sdc.src.ws.WebSocketSessionRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ public class AuthServiceTest {
     private UserCryptoDBRepository userCryptoRepository;
     private UserDBRepository userRepository;
     private TokenIntrospectionCache tokenIntrospectionCache;
+    private WebSocketSessionRegistry webSocketSessionRegistry;
 
     private AuthService authService;
 
@@ -53,6 +55,7 @@ public class AuthServiceTest {
         userCryptoRepository = mock(UserCryptoDBRepository.class);
         userRepository = mock(UserDBRepository.class);
         tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
+        webSocketSessionRegistry = mock(WebSocketSessionRegistry.class);
 
         AuthProperties authProperties = new AuthProperties();
         authProperties.setAccessTokenValiditySeconds(3600);
@@ -65,6 +68,7 @@ public class AuthServiceTest {
                 userCryptoRepository,
                 userRepository,
                 userCryptoMapper,
+                webSocketSessionRegistry,
                 tokenIntrospectionCache,
                 authProperties
         );
@@ -141,6 +145,7 @@ public class AuthServiceTest {
                 userCryptoRepository,
                 userRepository,
                 new UserCryptoMapper(),
+                webSocketSessionRegistry,
                 tokenIntrospectionCache,
                 authProperties()
         );

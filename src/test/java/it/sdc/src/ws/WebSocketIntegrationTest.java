@@ -9,6 +9,7 @@ import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.AuthCookieService;
+import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
 import it.sdc.src.test.fixtures.TestStompFrameHandler;
 import org.junit.jupiter.api.AfterEach;
@@ -77,6 +78,9 @@ public class WebSocketIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private AuthService authService;
 
     @Autowired
     private ChatService chatService;
@@ -210,5 +214,26 @@ public class WebSocketIntegrationTest {
         MessageDto unexpected = otherUserMessages.poll(3, TimeUnit.SECONDS);
 
         assertThat(unexpected).isNull();
+    }
+
+    @Test
+    void invalidateSession_closesOnlyItsWebSocket() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+
+        UserSessionDB session1 = userSessionRepository.save(mockSession(user));
+        String token1 = encodedPlainAccessToken(session1);
+        UserSessionDB session2 = userSessionRepository.save(mockSession(user));
+        String token2 = encodedPlainAccessToken(session2);
+
+        StompSession socket1 = connect(token1);
+        StompSession socket2 = connect(token2);
+
+        assertThat(socket1.isConnected()).isTrue();
+        assertThat(socket2.isConnected()).isTrue();
+
+        authService.invalidateSession(session1.getId());
+
+        await().atMost(2, TimeUnit.SECONDS).until(() -> !socket1.isConnected());
+        assertThat(socket2.isConnected()).isTrue();
     }
 }
