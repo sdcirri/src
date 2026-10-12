@@ -236,24 +236,4 @@ public class WebSocketSessionRegistryTest {
         verify(socket, never()).close(any());
         assertThat(innerSessionMap).doesNotContainKey(sessionId);
     }
-
-    @Test
-    void concurrentRegister_sameSession_doesNotLoseSockets() {
-
-    }
-
-    @Test
-    void concurrentRegister_differentSessions_remainsIsolated() {
-
-    }
-
-    @Test
-    void concurrentRegisterAndUnregister_doesNotCorruptRegistry() {
-
-    }
-
-    @Test
-    void concurrentRevokeAndRegister_hasConsistentOutcome() {
-
-    }
 }
