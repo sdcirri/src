@@ -28,8 +28,16 @@ public interface UserSessionDBRepository extends JpaRepository<UserSessionDB, UU
     List<UserSessionDB> findAllByUser_Id(UUID userId);
 
     @Query("""
-        DELETE FROM UserSessionDB s WHERE s.refreshTokenExpires < CURRENT_TIMESTAMP
+        SELECT s.id
+        FROM UserSessionDB s
+        WHERE s.refreshTokenExpires < CURRENT_TIMESTAMP
     """)
-    @Modifying
-    void clearExpiredSessions();
+    List<UUID> findExpiredSessionIds();
+
+        @Modifying
+        @Query("""
+        DELETE FROM UserSessionDB s
+        WHERE s.refreshTokenExpires < CURRENT_TIMESTAMP
+    """)
+    int clearExpiredSessions();
 }
