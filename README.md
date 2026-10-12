@@ -34,7 +34,24 @@ production-ready product to be used in real, high-risk communication scenarios.
 **TBA**
 
 ## Tech stack
-**TBA**
+### Backend
+![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/spring%20boot-%236DB33F.svg?style=for-the-badge&logo=springboot&logoColor=white)
+![Hibernate](https://img.shields.io/badge/Hibernate-%2359666C.svg?style=for-the-badge&logo=Hibernate&logoColor=white)
+
+### Frontend
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
+
+### Data and infrastructure
+![PostgreSQL](https://img.shields.io/badge/postgresql-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+![Nginx](https://img.shields.io/badge/nginx-%23009639.svg?style=for-the-badge&logo=nginx&logoColor=white)
+
+### Security and testing
+![JUnit](https://img.shields.io/badge/JUnit%206-%23f5f5f5.svg?style=for-the-badge&logo=openjdk&logoColor=dc524a)
+![Semgrep](https://img.shields.io/badge/semgrep-%2300C7B7.svg?style=for-the-badge&logoColor=white)
 
 ## Build and run
 **TBA**
