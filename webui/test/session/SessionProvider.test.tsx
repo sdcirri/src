@@ -556,3 +556,132 @@ it('disconnects websocket on unmount', async () => {
 
     expect(disconnect).toHaveBeenCalledOnce();
 });
+
+it('bootstrap enters error state on non-auth API failure', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+        .mockResolvedValueOnce(json(500, 'Internal Server Error'));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    expect(result.current.session.status).toBe('loading');
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('error');
+    });
+
+    expect(result.current.session.user).toBeNull();
+    expect(result.current.session.crypto).toBeNull();
+    expect(result.current.session.keys).toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+it('retry bootstrap restores the session after an initial authentication failure', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+        // initial bootstrap -> anonymous
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        // retry bootstrap -> locked
+        .mockResolvedValueOnce(json(200, MOCK_CRYPTO))
+        .mockResolvedValueOnce(json(200, MOCK_USER));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('anonymous');
+    });
+
+    await act(async () => {
+        await result.current.retryBootstrap();
+    });
+
+    expect(result.current.session.status).toBe('locked');
+    expect(result.current.session.user).toEqual(MOCK_USER);
+    expect(result.current.session.crypto).toEqual(MOCK_CRYPTO);
+    expect(result.current.session.keys).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+});
+
+it('retry bootstrap enters error state when bootstrap fails', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+        // initial bootstrap -> anonymous
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        // retry bootstrap -> non-auth failure
+        .mockResolvedValueOnce(json(500, 'Internal Server Error'));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('anonymous');
+    });
+
+    await act(async () => {
+        await result.current.retryBootstrap();
+    });
+
+    expect(result.current.session.status).toBe('error');
+    expect(result.current.session.user).toBeNull();
+    expect(result.current.session.crypto).toBeNull();
+    expect(result.current.session.keys).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+});
+
+it('does not update session when bootstrap succeeds after unmount', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    let resolveCrypto!: (value: ReturnType<typeof json>) => void;
+    const cryptoResponse = new Promise<ReturnType<typeof json>>(resolve => {
+        resolveCrypto = resolve;
+    });
+
+    fetchMock
+        .mockReturnValueOnce(cryptoResponse)
+        .mockResolvedValueOnce(json(200, MOCK_USER));
+
+    const { unmount } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    unmount();
+
+    resolveCrypto(json(200, MOCK_CRYPTO));
+
+    await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+});
+
+it('does not update session when bootstrap fails after unmount', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    let resolveRequest!: (value: ReturnType<typeof json>) => void;
+    const response = new Promise<ReturnType<typeof json>>(resolve => {
+        resolveRequest = resolve;
+    });
+
+    fetchMock.mockReturnValueOnce(response);
+
+    const { unmount } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    unmount();
+
+    resolveRequest(json(500, 'Internal Server Error'));
+
+    await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledOnce();
+    });
+});
