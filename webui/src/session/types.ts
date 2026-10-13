@@ -1,7 +1,7 @@
 import type { UserCryptoDto, UserDto } from '@/api/types.ts';
 import type { DecryptedCryptoSpecs } from '@/crypto/kek.ts';
 
-export type SessionStatus = 'loading' | 'anonymous' | 'locked' | 'unlocked';
+export type SessionStatus = 'loading' | 'anonymous' | 'locked' | 'unlocked' | 'error';
 
 export type Session = {
     status: SessionStatus;

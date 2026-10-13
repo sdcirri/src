@@ -7,8 +7,18 @@ import { connectMessages } from '@/api/ws.ts';
 
 import { decryptKeys } from '@/crypto/kek.ts';
 
+import type { Session, SessionStatus } from './types.ts';
 import { SessionContext } from './context.ts';
-import type { Session } from './types.ts';
+
+
+function emptySession(status: SessionStatus): Session {
+    return {
+        status,
+        user: null,
+        crypto: null,
+        keys: null,
+    };
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session>({
@@ -53,8 +63,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSession(current => ({ ...current, user }));
     }
 
+    async function retryBootstrap() {
+        setSession(emptySession('loading'));
+        try {
+            setSession(await bootstrap());
+        } catch {
+            setSession(emptySession('error'));
+        }
+    }
+
     useEffect(() => {
-        bootstrap().then(setSession);
+        let cancelled = false;
+
+        void bootstrap()
+            .then(session => {
+                if (!cancelled) setSession(session);
+            })
+            .catch(() => {
+                if (!cancelled) setSession(emptySession('error'));
+            });
+
+        return () => { cancelled = true };
     }, []);
 
     useEffect(() => {
@@ -65,7 +94,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }, [session.status]);
 
     return (
-        <SessionContext.Provider value={{ session, signIn, signUp, unlock, signOut, updateUser, wsSubscribe }}>
+        <SessionContext.Provider value={{
+            session,
+            signIn,
+            signUp,
+            unlock,
+            signOut,
+            updateUser,
+            wsSubscribe,
+            retryBootstrap
+        }}>
             {children}
         </SessionContext.Provider>
     );
