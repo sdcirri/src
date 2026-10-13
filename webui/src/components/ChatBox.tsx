@@ -93,9 +93,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
                 setContact(user);
                 setContactCrypto(crypto);
-                const older = history.toReversed();
-                if (page === 0) setMessages(older);
-                else setMessages(prev => mergeMessages(older, prev));
+                setMessages(prev => mergeMessages(history.toReversed(), prev));
             }
         }
 
