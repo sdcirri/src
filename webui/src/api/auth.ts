@@ -40,9 +40,10 @@ export async function finalizeRegistration(password: string): Promise<UserCrypto
     })
 }
 
-function toChangePasswordRequest(password: string, specs: UserCryptoDto): PasswordChangeRequest {
+function toChangePasswordRequest(oldPassword: string, newPassword: string, specs: UserCryptoDto): PasswordChangeRequest {
     return {
-        password,
+        oldPassword,
+        newPassword,
         newKekSalt: specs.kekSalt,
         newPrivateEd25519: specs.privateEd25519Crypto,
         newIvEd25519: specs.privateEd25519IV,
@@ -55,6 +56,6 @@ export async function changePassword(oldPassword: string, newPassword: string, o
     const newSpecs = await reEncryptSpecs(oldPassword, newPassword, oldCrypto);
     return request<void>('/auth/me/password', {
         method: 'POST',
-        body: JSON.stringify(toChangePasswordRequest(newPassword, newSpecs)),
+        body: JSON.stringify(toChangePasswordRequest(oldPassword, newPassword, newSpecs)),
     })
 }

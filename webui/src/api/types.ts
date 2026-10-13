@@ -75,7 +75,8 @@ export type UserRegistrationFinalizationRequest = {
 };
 
 export type PasswordChangeRequest = {
-    password: string;
+    oldPassword: string;
+    newPassword: string;
     newKekSalt: string;
     newPrivateEd25519: string;
     newIvEd25519: string;

@@ -156,7 +156,8 @@ describe('changePassword', () => {
         expect(request).toHaveBeenCalledWith('/auth/me/password', {
             method: 'POST',
             body: JSON.stringify({
-                password: 'NewPassw0rd!1',
+                oldPassword: 'Password1!',
+                newPassword: 'NewPassw0rd!1',
                 newKekSalt: newCrypto.kekSalt,
                 newPrivateEd25519: newCrypto.privateEd25519Crypto,
                 newIvEd25519: newCrypto.privateEd25519IV,
