@@ -13,6 +13,7 @@ import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.service.AuthCookieService;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -139,10 +140,16 @@ public class AuthControllerIntegrationTest {
         assertThat(findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow()).isNotBlank();
     }
 
+    @AfterEach
+    public void cleanupDb() {
+        cryptoRepository.deleteAll();
+        sessionRepository.deleteAll();
+        userRepository.deleteAll();
+    }
+
     @Test
     void login_shouldAcceptValidCredentialsAndYieldSession() throws Exception {
         UserDB mockUser = mockUser(passwordEncoder);
-        userRepository.deleteAll();
         userRepository.save(mockUser);
 
         LoginRequest req = new LoginRequest("user1", USER_PASSWORD);
@@ -173,7 +180,6 @@ public class AuthControllerIntegrationTest {
     @Test
     void login_shouldRejectInvalidCredentials() throws Exception {
         UserDB mockUser = mockUser(passwordEncoder);
-        userRepository.deleteAll();
         userRepository.save(mockUser);
 
         LoginRequest req = new LoginRequest("user1", "12345678");
@@ -205,9 +211,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void logout_shouldClearCookies_whenAuthenticated() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -243,9 +246,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void logout_shouldRequireCsrf() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -258,9 +258,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void logout_shouldDeleteSessionAndRevokeCachedAccessToken() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         Cookie accessCookie = mockAccessCookie(session);
@@ -288,9 +285,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void logout_shouldRevokeRefreshToken() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         Cookie accessCookie = mockAccessCookie(session);
@@ -313,9 +307,7 @@ public class AuthControllerIntegrationTest {
     void refresh_shouldYieldNewValidSession() throws Exception {
         UserDB user = mockUser(passwordEncoder);
         UserSessionDB userSession = mockSessionWithExpiredAccessToken(user);
-        userRepository.deleteAll();
         userRepository.save(user);
-        sessionRepository.deleteAll();
         sessionRepository.save(userSession);
 
         MvcResult result = mockMvc.perform(
@@ -339,9 +331,7 @@ public class AuthControllerIntegrationTest {
     void refresh_shouldRejectInvalidRefreshToken() throws Exception {
         UserDB user = mockUser(passwordEncoder);
         UserSessionDB userSession = mockSessionWithExpiredRefreshToken(user);
-        userRepository.deleteAll();
         userRepository.save(user);
-        sessionRepository.deleteAll();
         sessionRepository.save(userSession);
 
         mockMvc.perform(
@@ -354,8 +344,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void register_shouldPreRegisterUserOnGoodRequest() throws Exception {
-        sessionRepository.deleteAll();
-        userRepository.deleteAll();
         UserRegistrationRequest request = new UserRegistrationRequest("user1", null, USER_PASSWORD);
 
         MvcResult result = mockMvc.perform(
@@ -385,8 +373,6 @@ public class AuthControllerIntegrationTest {
     @Test
     void register_shouldRejectAlreadyTakenUsername() throws Exception {
         UserDB existingUser = mockUser(passwordEncoder);
-        sessionRepository.deleteAll();
-        userRepository.deleteAll();
         userRepository.save(existingUser);
 
         UserRegistrationRequest request = new UserRegistrationRequest(
@@ -428,10 +414,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void finalizeRegistration_shouldFinalizeUserRegistration() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = mockSession(user);
         sessionRepository.save(session);
@@ -482,10 +464,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void finalizeRegistration_shouldRejectFullyRegisteredUsers() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         cryptoRepository.save(mockUserCryptoDBSpecs(user));
@@ -501,10 +479,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void changePassword_shouldChangeUserPasswordAndEvictOldSessions() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
 
         for (int i = 0; i < 10; i++)
@@ -549,9 +523,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void changePassword_shouldRejectIfOldPasswordDoesNotMatch() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -567,9 +538,6 @@ public class AuthControllerIntegrationTest {
 
     @Test
     void changePassword_shouldRejectOldPassword() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -586,9 +554,6 @@ public class AuthControllerIntegrationTest {
     @ParameterizedTest
     @MethodSource("invalidPasswordChangeRequests")
     void changePassword_shouldRejectNullOrBlankPassword(PasswordChangeRequest badRequest) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -610,9 +575,6 @@ public class AuthControllerIntegrationTest {
             "Password1!"                // strong but pwned
     })
     void changePassword_shouldRejectWeakOrPwnedPassword(String badPassword) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 

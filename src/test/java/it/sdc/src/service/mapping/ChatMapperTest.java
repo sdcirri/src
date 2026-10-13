@@ -44,11 +44,11 @@ public class ChatMapperTest {
         when(chatDB.getMessages()).thenReturn(List.of(lastMessageDB));
         when(messageMapper.toDto(eq(lastMessageDB), any(UUID.class))).thenReturn(lastMessage);
 
-        ChatDto result = chatMapper.toDto(chatDB, user1Id);
+        ChatDto result = chatMapper.toDto(chatDB, lastMessageDB, user1Id);
         assertThat(result).isEqualTo(new ChatDto(chatId, user2Id, lastMessage));
         verify(messageMapper).toDto(lastMessageDB, user1Id);
 
-        result = chatMapper.toDto(chatDB, user2Id);
+        result = chatMapper.toDto(chatDB, lastMessageDB, user2Id);
         assertThat(result).isEqualTo(new ChatDto(chatId, user1Id, lastMessage));
         verify(messageMapper).toDto(lastMessageDB, user2Id);
     }
@@ -64,7 +64,9 @@ public class ChatMapperTest {
         when(chatDB.getUser1()).thenReturn(user1DB);
         when(chatDB.getUser2()).thenReturn(user2DB);
 
-        assertThatThrownBy(() -> chatMapper.toDto(chatDB, nosyUserId)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                () -> chatMapper.toDto(chatDB, mock(MessageDB.class), nosyUserId)
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -79,6 +81,8 @@ public class ChatMapperTest {
         when(chatDB.getUser2()).thenReturn(user2DB);
         when(chatDB.getMessages()).thenReturn(Collections.emptyList());
 
-        assertThatThrownBy(() -> chatMapper.toDto(chatDB, user1Id)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                () -> chatMapper.toDto(chatDB, mock(MessageDB.class), user1Id)
+        ).isInstanceOf(IllegalArgumentException.class);
     }
 }

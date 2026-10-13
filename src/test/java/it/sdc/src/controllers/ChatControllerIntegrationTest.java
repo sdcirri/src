@@ -12,12 +12,14 @@ import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.mapping.MessageMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -163,7 +165,8 @@ public class ChatControllerIntegrationTest {
         );
     }
 
-    private void cleanupDb() {
+    @AfterEach
+    public void cleanupDb() {
         messageRepository.deleteAll();
         chatRepository.deleteAll();
         sessionRepository.deleteAll();
@@ -172,8 +175,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void getMyChats_shouldListCurrentUserChats() throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
         List<ChatDto> expectedChats = new ArrayList<>();
@@ -214,8 +215,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void getMessageHistory_shouldReturnChatHistory() throws Exception {
-        cleanupDb();
-
         UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
@@ -243,8 +242,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void getMessageHistory_shouldPaginateResults() throws Exception {
-        cleanupDb();
-
         UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
@@ -298,8 +295,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void getMessageHistory_shouldRejectInvalidPaginationParams() throws Exception {
-        cleanupDb();
-
         UserDB user1 = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB user2 = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user1));
@@ -331,8 +326,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void getMessageHistory_shouldErrorOnNonexistentChat() throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -347,8 +340,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void sendMessage_shouldSendMessage() throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user));
@@ -373,8 +364,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void sendMessage_shouldCreateChatIfNotExists() throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB session = sessionRepository.save(mockSession(user));
@@ -389,10 +378,13 @@ public class ChatControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request))
         ).andExpect(status().isCreated());
 
-        List<ChatDB> chats = chatRepository.findByUserIdWithMessages(user.getId());
+        List<ChatDB> chats = chatRepository.findByUserId(user.getId());
         assertThat(chats).hasSize(1);
         ChatDB chat = chats.getFirst();
-        assertThat(chat.getMessages()).hasSize(1);
+
+        assertThat(
+                messageRepository.findByChatIdOrderByTimestampDesc(chat.getId(), Pageable.ofSize(10))
+        ).hasSize(1);
     }
 
     @Test
@@ -407,8 +399,6 @@ public class ChatControllerIntegrationTest {
 
     @Test
     void sendMessage_shouldErrorOnNonexistentUser() throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 
@@ -424,8 +414,6 @@ public class ChatControllerIntegrationTest {
     @ParameterizedTest
     @MethodSource("badMessageRequests")
     void sendMessage_shouldRejectInvalidMessageBodies(MessageRequest badRequest) throws Exception {
-        cleanupDb();
-
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB session = sessionRepository.save(mockSession(user));
 

@@ -14,11 +14,12 @@ import java.util.UUID;
 public class ChatMapper {
     private final MessageMapper messageMapper;
 
-    public ChatDto toDto(ChatDB chat, UUID userId) {
+    public ChatDto toDto(ChatDB chat, MessageDB lastMessage, UUID userId) {
         UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
 
         if (!userId.equals(user1Id) && !userId.equals(user2Id))
             throw new IllegalArgumentException("User does not own chat");
+
         List<MessageDB> history = chat.getMessages();
         if (history.isEmpty())
             throw new IllegalArgumentException("Chat history is empty");
@@ -26,8 +27,7 @@ public class ChatMapper {
         return new ChatDto(
                 chat.getId(),
                 user1Id.equals(userId) ? user2Id : user1Id,
-                // chats always have at least one message
-                messageMapper.toDto(history.getLast(), userId)
+                messageMapper.toDto(lastMessage, userId)
         );
     }
 }

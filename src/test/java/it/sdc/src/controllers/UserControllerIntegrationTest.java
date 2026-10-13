@@ -14,6 +14,7 @@ import it.sdc.src.dto.requests.accountedits.UsernameChangeRequest;
 import it.sdc.src.service.ProPicNormalizer;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import it.sdc.src.service.mapping.UserMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -94,11 +95,16 @@ public class UserControllerIntegrationTest {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
+
+    @AfterEach
+    public void cleanupDb() {
+        cryptoRepository.deleteAll();
+        sessionRepository.deleteAll();
+        userRepository.deleteAll();
+    }
+
     @Test
     void searchUsers_matchesUsernames() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -135,9 +141,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"user", "User", "USER", "UsER"})
     void searchUsers_shouldBeCaseInsensitive(String query) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -157,9 +160,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void searchUsers_pagesResults() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
         Set<UserDto> expected = new HashSet<>();
@@ -193,9 +193,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void searchUsers_shouldRejectNullQuery() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -208,9 +205,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 256, 1024, 2048})
     void searchUsers_querySizeShouldBeBounded(int querySize) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -223,9 +217,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {3, 255})
     void searchUsers_querySizeBoundaryIsInclusive(int querySize) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -244,9 +235,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldReturnValidInfo() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB otherUser = userRepository.save(mockUser(passwordEncoder, 2));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -264,9 +252,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldReturnOwnInfo() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -283,9 +268,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldErrorOnNonexistingUserId() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
         UUID badUserId;
@@ -309,9 +291,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"aaaa", "123", "null"})
     void getUserInfo_shouldOnlyAcceptValidUUIDs(String badId) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -323,9 +302,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setDisplayName_shouldChangeOwnDisplayName() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -352,9 +328,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 256, 1024})
     void setDisplayName_shouldRejectDisplayNameWithBadLength(int length) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -372,9 +345,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = { 1, 255 })
     void setDisplayName_displayNameBoundaryIsInclusive(int length) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -403,9 +373,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setUsername_shouldChangeOwnUsername() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -432,9 +399,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2, 256, 1024})
     void setUsername_shouldRejectUsernameWithBadLength(int length) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -452,9 +416,6 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = { 3, 255 })
     void setUsername_usernameBoundaryIsInclusive(int length) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -479,9 +440,6 @@ public class UserControllerIntegrationTest {
             "no$pec1@lCh@rs@ll0w3d!!!1!"
     })
     void setUsername_shouldRejectBadUsernames(String username) throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -503,9 +461,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldSetUserProPic() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = mockUser(passwordEncoder, 1);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
@@ -536,9 +491,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldRejectEmptyMultipart() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = mockUser(passwordEncoder, 1);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
@@ -553,9 +505,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldRejectBadImage() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-
         UserDB myUser = mockUser(passwordEncoder, 1);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
@@ -589,10 +538,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getCryptoSpecs_shouldReturnOwnCryptoSpecs() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -610,10 +555,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getCryptoSpecs_rejectsPartiallyRegisteredUserWith409() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -632,10 +573,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldReturnUserPublicCryptoSpecs() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -655,10 +592,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldNotLeakPrivateCryptoSpecs() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -680,10 +613,6 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldHandleSelf() throws Exception {
-        userRepository.deleteAll();
-        sessionRepository.deleteAll();
-        cryptoRepository.deleteAll();
-
         UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
         UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));

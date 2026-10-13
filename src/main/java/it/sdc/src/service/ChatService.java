@@ -49,8 +49,13 @@ public class ChatService {
      */
     @Transactional(readOnly = true)
     public List<ChatDto> getChats(UUID myUserId) {
-        return chatRepository.findByUserIdWithMessages(myUserId).stream()
-                .map(chat -> chatMapper.toDto(chat, myUserId))
+        return chatRepository.findByUserId(myUserId).stream()
+                .map(chat -> {
+                    MessageDB lastMessage = messageRepository
+                            .findFirstByChatIdOrderByTimestampDescIdDesc(chat.getId())
+                            .orElseThrow();
+                    return chatMapper.toDto(chat, lastMessage, myUserId);
+                })
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()
                 )
