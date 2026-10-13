@@ -154,6 +154,7 @@ public class AuthService {
                     @Override
                     public void afterCommit() {
                         tokenIntrospectionCache.evict(session);
+                        webSocketSessionRegistry.revoke(session.getId());
                     }
                 }
         );
@@ -251,6 +252,8 @@ public class AuthService {
                     @Override
                     public void afterCommit() {
                         tokenIntrospectionCache.evictAll(oldSessions);
+                        for (UserSessionDB session : oldSessions)
+                            webSocketSessionRegistry.revoke(session.getId());
                     }
                 }
         );
