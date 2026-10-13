@@ -609,7 +609,7 @@ public class UserControllerIntegrationTest {
     }
 
     @Test
-    void getCryptoSpecs_rejectsPartiallyRegisteredUser() throws Exception {
+    void getCryptoSpecs_rejectsPartiallyRegisteredUserWith409() throws Exception {
         userRepository.deleteAll();
         sessionRepository.deleteAll();
         cryptoRepository.deleteAll();
@@ -620,7 +620,7 @@ public class UserControllerIntegrationTest {
         mockMvc.perform(
                 get("/users/me/crypto")
                         .cookie(mockAccessCookie(mySession))
-        ).andExpect(status().isNotFound());
+        ).andExpect(status().isConflict());
     }
 
     @Test
