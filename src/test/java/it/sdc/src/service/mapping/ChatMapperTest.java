@@ -8,7 +8,6 @@ import it.sdc.src.dto.MessageDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,23 +65,6 @@ public class ChatMapperTest {
 
         assertThatThrownBy(
                 () -> chatMapper.toDto(chatDB, mock(MessageDB.class), nosyUserId)
-        ).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    public void toDto_shouldThrowOnEmptyChat() {
-        UUID user1Id =  UUID.randomUUID(), user2Id = UUID.randomUUID();
-        UserDB user1DB = mock(UserDB.class), user2DB = mock(UserDB.class);
-        when(user1DB.getId()).thenReturn(user1Id);
-        when(user2DB.getId()).thenReturn(user2Id);
-
-        ChatDB chatDB = mock(ChatDB.class);
-        when(chatDB.getUser1()).thenReturn(user1DB);
-        when(chatDB.getUser2()).thenReturn(user2DB);
-        when(chatDB.getMessages()).thenReturn(Collections.emptyList());
-
-        assertThatThrownBy(
-                () -> chatMapper.toDto(chatDB, mock(MessageDB.class), user1Id)
         ).isInstanceOf(IllegalArgumentException.class);
     }
 }

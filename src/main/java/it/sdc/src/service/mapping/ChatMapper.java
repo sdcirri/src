@@ -6,7 +6,6 @@ import it.sdc.src.dto.ChatDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -19,10 +18,6 @@ public class ChatMapper {
 
         if (!userId.equals(user1Id) && !userId.equals(user2Id))
             throw new IllegalArgumentException("User does not own chat");
-
-        List<MessageDB> history = chat.getMessages();
-        if (history.isEmpty())
-            throw new IllegalArgumentException("Chat history is empty");
 
         return new ChatDto(
                 chat.getId(),
