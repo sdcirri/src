@@ -45,6 +45,35 @@ public class AuthServiceTest {
 
     private AuthService authService;
 
+    private static String b64(byte... bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    private UserRegistrationFinalizationRequest validFinalizationRequest() {
+        return new UserRegistrationFinalizationRequest(
+                "password",
+                b64((byte) 1, (byte) 2, (byte) 3),    // kekSalt
+                b64((byte) 10, (byte) 11),            // privateEd25519Crypto
+                b64((byte) 20, (byte) 21),            // privateEd25519IV
+                b64((byte) 30, (byte) 31),            // publicEd25519
+                b64((byte) 40, (byte) 41),            // privateX25519Crypto
+                b64((byte) 50, (byte) 51),            // privateX25519IV
+                b64((byte) 60, (byte) 61)             // publicX25519
+        );
+    }
+
+    private PasswordChangeRequest validPasswordChangeRequest(String oldPassword, String newPassword) {
+        return new PasswordChangeRequest(
+                oldPassword,
+                newPassword,
+                b64((byte) 1, (byte) 2, (byte) 3),    // kekSalt
+                b64((byte) 10, (byte) 11),            // privateEd25519Crypto
+                b64((byte) 20, (byte) 21),            // privateEd25519IV
+                b64((byte) 40, (byte) 41),            // privateX25519Crypto
+                b64((byte) 50, (byte) 51)             // privateX25519IV
+        );
+    }
+
     @BeforeEach
     void setUp() {
         passwordEncoder = mock(Argon2PasswordEncoder.class);
@@ -311,34 +340,6 @@ public class AuthServiceTest {
         assertThatThrownBy(() -> authService.register(request)).isInstanceOf(UsernameAlreadyTakenException.class);
     }
 
-    private static String b64(byte... bytes) {
-        return Base64.getEncoder().encodeToString(bytes);
-    }
-
-    private UserRegistrationFinalizationRequest validFinalizationRequest() {
-        return new UserRegistrationFinalizationRequest(
-                b64((byte) 1, (byte) 2, (byte) 3),    // kekSalt
-                b64((byte) 10, (byte) 11),            // privateEd25519Crypto
-                b64((byte) 20, (byte) 21),            // privateEd25519IV
-                b64((byte) 30, (byte) 31),            // publicEd25519
-                b64((byte) 40, (byte) 41),            // privateX25519Crypto
-                b64((byte) 50, (byte) 51),            // privateX25519IV
-                b64((byte) 60, (byte) 61)             // publicX25519
-        );
-    }
-
-    private PasswordChangeRequest validPasswordChangeRequest(String oldPassword, String newPassword) {
-        return new PasswordChangeRequest(
-                oldPassword,
-                newPassword,
-                b64((byte) 1, (byte) 2, (byte) 3),    // kekSalt
-                b64((byte) 10, (byte) 11),            // privateEd25519Crypto
-                b64((byte) 20, (byte) 21),            // privateEd25519IV
-                b64((byte) 40, (byte) 41),            // privateX25519Crypto
-                b64((byte) 50, (byte) 51)             // privateX25519IV
-        );
-    }
-
     @Test
     void finalizeRegistration_shouldPersistCryptoSpecs() {
         UUID userId = UUID.randomUUID();
@@ -346,6 +347,8 @@ public class AuthServiceTest {
 
         UserDB user = mock(UserDB.class);
         when(user.getId()).thenReturn(userId);
+        when(user.getPasswordHash()).thenReturn("passwordHash");
+        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(true);
 
         when(userCryptoRepository.existsById(userId)).thenReturn(false);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -398,6 +401,24 @@ public class AuthServiceTest {
                 .hasMessage("Bad request");
 
         verify(userCryptoRepository, never()).save(any());
+    }
+
+    @Test
+    void finalizeRegistration_shouldFailIfPasswordMismatch() {
+        UUID userId = UUID.randomUUID();
+        UserRegistrationFinalizationRequest request = validFinalizationRequest();
+
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(userId);
+        when(user.getPasswordHash()).thenReturn("passwordHash");
+        when(passwordEncoder.matches("password", "passwordHash")).thenReturn(false);
+
+        when(userCryptoRepository.existsById(userId)).thenReturn(false);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(
+                () -> authService.finalizeRegistration(userId, request)
+        ).isInstanceOf(LoginFailedException.class);
     }
 
     @Test

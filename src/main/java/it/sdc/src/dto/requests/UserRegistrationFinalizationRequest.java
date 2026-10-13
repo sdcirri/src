@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record UserRegistrationFinalizationRequest(
+        @NotBlank String password,
         @NotNull @NotBlank @Base64String String kekSalt,
         @NotNull @NotBlank @Base64String String privateEd25519Crypto,
         @NotNull @NotBlank @Base64String String privateEd25519IV,

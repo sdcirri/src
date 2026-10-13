@@ -56,8 +56,9 @@ public final class CryptoFixtures {
         );
     }
 
-    public static UserRegistrationFinalizationRequest mockFinalizationRequest() {
+    public static UserRegistrationFinalizationRequest mockFinalizationRequest(String password) {
         return new UserRegistrationFinalizationRequest(
+                password,
                 ENCODER.encodeToString(KEK_SALT),
                 ENCODER.encodeToString(PRIVATE_ED25519_CRYPTO),
                 ENCODER.encodeToString(PRIVATE_ED25519_IV),

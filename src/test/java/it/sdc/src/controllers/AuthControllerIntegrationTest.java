@@ -418,7 +418,7 @@ public class AuthControllerIntegrationTest {
         UserSessionDB session = mockSession(user);
         sessionRepository.save(session);
 
-        UserRegistrationFinalizationRequest request = mockFinalizationRequest();
+        UserRegistrationFinalizationRequest request = mockFinalizationRequest(USER_PASSWORD);
 
         MvcResult result = mockMvc.perform(
                 post("/auth/register/finalize")
@@ -458,7 +458,7 @@ public class AuthControllerIntegrationTest {
                 post("/auth/register/finalize")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
+                        .content(objectMapper.writeValueAsString(mockFinalizationRequest(USER_PASSWORD)))
         ).andExpect(status().isUnauthorized());
     }
 
@@ -473,7 +473,7 @@ public class AuthControllerIntegrationTest {
                         .with(csrf())
                         .cookie(mockAccessCookie(session))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(mockFinalizationRequest()))
+                        .content(objectMapper.writeValueAsString(mockFinalizationRequest(USER_PASSWORD)))
         ).andExpect(status().isConflict());
     }
 

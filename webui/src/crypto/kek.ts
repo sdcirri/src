@@ -32,6 +32,7 @@ export async function bootstrapUserCrypto(password: string): Promise<UserRegistr
     const x25519Crypto = await encryptKeyWithKek(password, kekSalt, keyMaterial.x25519.privateKey);
 
     return {
+        password,
         kekSalt: toBase64(kekSalt),
         privateEd25519Crypto: toBase64(ed25519Crypto.cipherText),
         privateEd25519IV: toBase64(ed25519Crypto.iv),

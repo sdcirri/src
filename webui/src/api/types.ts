@@ -65,6 +65,7 @@ export type UserRegistrationRequest = {
 };
 
 export type UserRegistrationFinalizationRequest = {
+    password: string;
     kekSalt: string;
     privateEd25519Crypto: string;
     privateEd25519IV: string;
