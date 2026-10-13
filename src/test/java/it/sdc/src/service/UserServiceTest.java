@@ -7,6 +7,7 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
+import it.sdc.src.exceptions.PartialRegistrationException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.exceptions.UsernameAlreadyTakenException;
 import it.sdc.src.service.mapping.UserCryptoMapper;
@@ -102,6 +103,7 @@ public class UserServiceTest {
     void getMyCryptoSpecs_shouldReturnOwnCryptoSpecs() {
         UUID userId = UUID.randomUUID();
         UserCryptoDB loggedUserCrypto = mock(UserCryptoDB.class);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mock(UserDB.class)));
         when(userCryptoRepository.findById(userId)).thenReturn(Optional.of(loggedUserCrypto));
         when(userCryptoMapper.toPrivateDto(loggedUserCrypto)).thenReturn(mockPrivateCryptoSpecs(userId));
 
@@ -114,6 +116,15 @@ public class UserServiceTest {
         UUID badUserId = UUID.randomUUID();
         when(userRepository.findById(badUserId)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> userService.getMyCryptoSpecs(badUserId)).isInstanceOf(UserNotFoundException.class);
+    }
+
+    @Test
+    void getMyCryptoSpecs_shouldThrowOnPartiallyRegisteredUser() {
+        UUID userId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userCryptoRepository.findById(userId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> userService.getMyCryptoSpecs(userId)).isInstanceOf(PartialRegistrationException.class);
     }
 
     @Test

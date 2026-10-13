@@ -7,6 +7,7 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
+import it.sdc.src.exceptions.PartialRegistrationException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.exceptions.UsernameAlreadyTakenException;
 import it.sdc.src.service.mapping.UserCryptoMapper;
@@ -65,8 +66,12 @@ public class UserService {
      * @throws UserNotFoundException on bad user ID
      */
     public UserCryptoDto getMyCryptoSpecs(UUID userId) {
-        UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
+        userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
+        );
+
+        UserCryptoDB userCrypto = userCryptoRepository.findById(userId).orElseThrow(
+                () -> new PartialRegistrationException("User has not finalized registration")
         );
         return userCryptoMapper.toPrivateDto(userCrypto);
     }
