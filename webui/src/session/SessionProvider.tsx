@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 
 import { ApiError, type UserDto, type MessageDto } from '@/api/types.ts';
-import { login, logout, refreshSession, register } from '@/api/auth.ts';
 import { getMyCryptoSpecs, getUserInfo } from '@/api/users.ts';
+import { login, logout, register } from '@/api/auth.ts';
 import { connectMessages } from '@/api/ws.ts';
 
 import { decryptKeys } from '@/crypto/kek.ts';
@@ -77,16 +77,9 @@ async function bootstrap(): Promise<Session> {
         const user = await getUserInfo(crypto.id);
         return { status: 'locked', user, crypto, keys: null };
     } catch (e) {
-        if (e instanceof ApiError && [401, 403].includes(e.status)) {
-            try {
-                await refreshSession();
-                const crypto = await getMyCryptoSpecs();
-                const user = await getUserInfo(crypto.id);
-                return { status: 'locked', user, crypto, keys: null };
-            } catch {
-                return { status: 'anonymous', user: null, crypto: null, keys: null };
-            }
-        }
+        if (e instanceof ApiError && [401, 403].includes(e.status))
+            return { status: 'anonymous', user: null, crypto: null, keys: null };
+
         throw e;
     }
 }

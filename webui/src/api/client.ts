@@ -9,7 +9,7 @@ function getCsrfToken(): string | undefined {
         ?.split('=')[1];
 }
 
-export async function request<T>(
+async function rawRequest<T>(
     path: string,
     init: RequestInit = {},
 ): Promise<T> {
@@ -36,4 +36,47 @@ export async function request<T>(
     const text = await res.text();
     if (text.length === 0) return undefined as T;
     return JSON.parse(text) as T;
+}
+
+let refreshPromise: Promise<void> | null = null;
+let generation = 0;
+
+async function recoverAuthentication(requestGeneration: number): Promise<void> {
+    // someone already refreshed auth
+    if (requestGeneration !== generation) return;
+
+    if (!refreshPromise) {
+        refreshPromise = rawRequest<void>('/auth/refresh', {
+            method: 'POST',
+        })
+            .then(() => {
+                generation++;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+
+    await refreshPromise;
+}
+
+type RequestOptions = RequestInit & {
+    authenticated?: boolean;
+};
+
+export async function request<T>(
+    path: string,
+    { authenticated = true, ...init }: RequestOptions = {},
+): Promise<T> {
+    const requestGeneration = generation;
+
+    try {
+        return await rawRequest<T>(path, init);
+    } catch (error) {
+        if (!authenticated || !(error instanceof ApiError) || error.status !== 401)
+            throw error;
+
+        await recoverAuthentication(requestGeneration);
+        return rawRequest<T>(path, init);
+    }
 }
