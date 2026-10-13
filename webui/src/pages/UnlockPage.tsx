@@ -2,6 +2,7 @@ import { M3LoadingIndicator } from '@alerix/m3-loading-indicator/react';
 import { type SubmitEvent, useState } from 'react';
 
 import { useSession } from '@/session/useSession.ts';
+import { ApiError } from '@/api/types.ts';
 
 import '@/css/forms.css';
 import '@/css/main.css';
@@ -18,7 +19,7 @@ function UnlockPage() {
         requestAnimationFrame(() => setShake(true));
     }
 
-    async function onSubmit (e: SubmitEvent<HTMLFormElement>) {
+    async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
         const data = new FormData(e.currentTarget);
         const password = String(data.get('password') ?? '');
@@ -27,8 +28,11 @@ function UnlockPage() {
         setPending(true);
         try {
             await unlock(password);
-        } catch {
-            showError('Wrong password');
+        } catch (err) {
+            if (err instanceof ApiError && err.status === 403)
+                showError('Wrong password');
+            else
+                showError('Unable to complete registration');
         } finally {
             setPending(false);
         }

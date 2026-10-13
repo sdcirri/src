@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef, type ReactNode } from 'react';
 
+import { finalizeRegistration, login, logout, register } from '@/api/auth.ts';
 import { ApiError, type UserDto, type MessageDto } from '@/api/types.ts';
 import { getMyCryptoSpecs, getUserInfo } from '@/api/users.ts';
-import { login, logout, register } from '@/api/auth.ts';
 import { connectMessages } from '@/api/ws.ts';
 
 import { decryptKeys } from '@/crypto/kek.ts';
@@ -63,6 +63,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSession(current => ({ ...current, user }));
     }
 
+    async function resumeRegistration(password: string) {
+        const crypto = await finalizeRegistration(password);
+        const user = await getUserInfo(crypto.id);
+        const keys = await decryptKeys(crypto, password);
+
+        setSession({
+            status: 'unlocked',
+            user,
+            crypto,
+            keys,
+        });
+    }
+
     async function retryBootstrap() {
         setSession(emptySession('loading'));
         try {
@@ -101,6 +114,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             unlock,
             signOut,
             updateUser,
+            resumeRegistration,
             wsSubscribe,
             retryBootstrap
         }}>
@@ -115,9 +129,12 @@ async function bootstrap(): Promise<Session> {
         const user = await getUserInfo(crypto.id);
         return { status: 'locked', user, crypto, keys: null };
     } catch (e) {
-        if (e instanceof ApiError && [401, 403].includes(e.status))
-            return { status: 'anonymous', user: null, crypto: null, keys: null };
-
+        if (e instanceof ApiError) {
+            if (e.status === 409)
+                return emptySession('registration-incomplete');
+            else if ([401, 403].includes(e.status))
+                return emptySession('anonymous');
+        }
         throw e;
     }
 }

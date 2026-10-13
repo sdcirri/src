@@ -579,6 +579,23 @@ it('bootstrap enters error state on non-auth API failure', async () => {
     expect(fetchMock).toHaveBeenCalledOnce();
 });
 
+it('bootstrap enters error state on network failure', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+        .mockRejectedValueOnce(new TypeError('Network failure'));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('error');
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+});
+
 it('retry bootstrap restores the session after an initial authentication failure', async () => {
     vi.stubGlobal('fetch', fetchMock);
 
@@ -684,4 +701,67 @@ it('does not update session when bootstrap fails after unmount', async () => {
     await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledOnce();
     });
+});
+
+it('bootstrap detects incomplete registration', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+
+    fetchMock
+        .mockResolvedValueOnce(json(409, 'Registration incomplete'));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    expect(result.current.session.status).toBe('loading');
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('registration-incomplete');
+    });
+
+    expect(result.current.session.user).toBeNull();
+    expect(result.current.session.crypto).toBeNull();
+    expect(result.current.session.keys).toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+});
+
+it('resume registration finalizes crypto and unlocks the session', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    decryptKeys.mockResolvedValueOnce(MOCK_KEYS);
+
+    fetchMock
+        // initial bootstrap -> anonymous
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        .mockResolvedValueOnce(json(401, 'Unauthorized'))
+        // /register/finalize
+        .mockResolvedValueOnce(json(200, MOCK_CRYPTO))
+        // getUserInfo
+        .mockResolvedValueOnce(json(200, MOCK_USER));
+
+    const { result } = renderHook(() => useSession(), {
+        wrapper: SessionProvider,
+    });
+
+    await waitFor(() => {
+        expect(result.current.session.status).toBe('anonymous');
+    });
+
+    await act(async () => {
+        await result.current.resumeRegistration('password');
+    });
+
+    expect(result.current.session.status).toBe('unlocked');
+    expect(result.current.session.user).toEqual(MOCK_USER);
+    expect(result.current.session.crypto).toEqual(MOCK_CRYPTO);
+    expect(result.current.session.keys).toEqual(MOCK_KEYS);
+
+    expect(decryptKeys).toHaveBeenCalledOnce();
+    expect(decryptKeys).toHaveBeenCalledWith(MOCK_CRYPTO, 'password');
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('register/finalize'),
+        expect.anything(),
+    );
 });

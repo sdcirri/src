@@ -27,7 +27,11 @@ export async function register(req: UserRegistrationRequest): Promise<UserCrypto
         body: JSON.stringify(req),
     })
 
-    const crypto = await bootstrapUserCrypto(req.password);
+    return finalizeRegistration(req.password);
+}
+
+export async function finalizeRegistration(password: string): Promise<UserCryptoDto> {
+    const crypto = await bootstrapUserCrypto(password);
     return request<UserCryptoDto>('/auth/register/finalize', {
         method: 'POST',
         body: JSON.stringify(crypto),

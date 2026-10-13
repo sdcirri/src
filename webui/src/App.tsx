@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router';
 
 import { useSession } from '@/session/useSession.ts';
+
+import ResumeRegistrationPage from '@/pages/ResumeRegistrationPage.tsx';
 import RegisterPage from '@/pages/RegisterPage.tsx';
 import UnlockPage from '@/pages/UnlockPage.tsx';
 import LoginPage from '@/pages/LoginPage.tsx';
@@ -20,6 +22,8 @@ function App() {
     );
 
     if (session.status === 'locked') return <UnlockPage />;
+
+    if (session.status === 'registration-incomplete') return <ResumeRegistrationPage />;
 
     return (
         <Routes>

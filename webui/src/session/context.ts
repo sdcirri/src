@@ -11,6 +11,7 @@ export const SessionContext = createContext<{
     unlock: (password: string) => Promise<void>;
     signOut: () => Promise<void>;
     updateUser: (user: UserDto) => void;
+    resumeRegistration: (password: string) => Promise<void>;
     wsSubscribe: (listener: (message: MessageDto) => void) => () => void;
     retryBootstrap: () => Promise<void>;
 } | null>(null);
