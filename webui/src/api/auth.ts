@@ -6,6 +6,7 @@ export function login(req: LoginRequest): Promise<void> {
     return request<void>('/auth/login', {
         method: 'POST',
         body: JSON.stringify(req),
+        authenticated: false,
     });
 }
 
@@ -25,6 +26,7 @@ export async function register(req: UserRegistrationRequest): Promise<UserCrypto
     await request<void>('/auth/register', {
         method: 'POST',
         body: JSON.stringify(req),
+        authenticated: false,
     })
 
     return finalizeRegistration(req.password);

@@ -68,6 +68,7 @@ describe('login', () => {
         expect(request).toHaveBeenCalledWith('/auth/login', {
             method: 'POST',
             body: JSON.stringify(credentials),
+            authenticated: false,
         });
     });
 });
@@ -120,6 +121,7 @@ describe('register', () => {
         expect(request).toHaveBeenNthCalledWith(1, '/auth/register', {
             method: 'POST',
             body: JSON.stringify(registration),
+            authenticated: false,
         });
         expect(bootstrapUserCrypto).toHaveBeenCalledWith(registration.password);
         expect(request).toHaveBeenNthCalledWith(2, '/auth/register/finalize', {
