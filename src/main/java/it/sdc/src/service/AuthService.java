@@ -199,7 +199,7 @@ public class AuthService {
         );
 
         if (!passwordEncoder.matches(request.password(), newUser.getPasswordHash()))
-            throw new LoginFailedException("Invalid password");
+            throw new BadPasswordException("Invalid password");
 
         Base64.Decoder decoder = Base64.getDecoder();
         UserCryptoDB newUserCrypto = UserCryptoDB.builder()

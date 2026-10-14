@@ -418,7 +418,7 @@ public class AuthServiceTest {
 
         assertThatThrownBy(
                 () -> authService.finalizeRegistration(userId, request)
-        ).isInstanceOf(LoginFailedException.class);
+        ).isInstanceOf(BadPasswordException.class);
     }
 
     @Test

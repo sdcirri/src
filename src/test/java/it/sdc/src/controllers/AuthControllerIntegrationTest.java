@@ -478,6 +478,22 @@ public class AuthControllerIntegrationTest {
     }
 
     @Test
+    void finalizeRegistration_shouldRejectOnBadPasswordConfirmation() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        UserRegistrationFinalizationRequest request = mockFinalizationRequest("wrong password");
+
+        mockMvc.perform(
+                post("/auth/register/finalize")
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
     void changePassword_shouldChangeUserPasswordAndEvictOldSessions() throws Exception {
         UserDB user = userRepository.save(mockUser(passwordEncoder));
 
