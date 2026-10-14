@@ -1,7 +1,8 @@
 import { argon2id } from '@noble/hashes/argon2.js';
 
-import { type AesCrypto, aesDecrypt, aesEncrypt, fromBase64, toBase64 } from '@/crypto/common.ts';
 import type { UserCryptoDto, UserRegistrationFinalizationRequest } from '@/api/types.ts';
+
+import { aesDecrypt, aesEncrypt, fromBase64, toBase64 } from '@/crypto/common.ts';
 import { generateKeyMaterial } from '@/crypto/keys.ts';
 
 export type DecryptedCryptoSpecs = {
@@ -12,24 +13,20 @@ export type DecryptedCryptoSpecs = {
 };
 
 function argon2idForKek(password: string, salt: Uint8Array): Uint8Array {
-    return argon2id(password as string, salt, { t: 3, m: 65536, p: 4, dkLen: 32 });
+    return argon2id(password, salt, { t: 3, m: 65536, p: 4, dkLen: 32 });
 }
 
 function generateArgonSalt(): Uint8Array {
     return crypto.getRandomValues(new Uint8Array(32));
 }
 
-async function encryptKeyWithKek(password: string, salt: Uint8Array, key: Uint8Array): Promise<AesCrypto> {
-    const kek = argon2idForKek(password, salt);
-    return await aesEncrypt(kek, key);
-}
-
 export async function bootstrapUserCrypto(password: string): Promise<UserRegistrationFinalizationRequest> {
     const keyMaterial = generateKeyMaterial();
     const kekSalt = generateArgonSalt();
+    const kek = argon2idForKek(password, kekSalt);
 
-    const ed25519Crypto = await encryptKeyWithKek(password, kekSalt, keyMaterial.ed25519.privateKey);
-    const x25519Crypto = await encryptKeyWithKek(password, kekSalt, keyMaterial.x25519.privateKey);
+    const ed25519Crypto = await aesEncrypt(kek, keyMaterial.ed25519.privateKey);
+    const x25519Crypto = await aesEncrypt(kek, keyMaterial.x25519.privateKey);
 
     return {
         password,
@@ -44,12 +41,12 @@ export async function bootstrapUserCrypto(password: string): Promise<UserRegistr
 }
 
 export async function decryptKeys(mySpecs: UserCryptoDto, password: string): Promise<DecryptedCryptoSpecs> {
-    const hash = argon2idForKek(password, fromBase64(mySpecs.kekSalt));
+    const kek = argon2idForKek(password, fromBase64(mySpecs.kekSalt));
     const plainEd25519 = await aesDecrypt(
-        hash, { iv: fromBase64(mySpecs.privateEd25519IV), cipherText: fromBase64(mySpecs.privateEd25519Crypto) }
+        kek, { iv: fromBase64(mySpecs.privateEd25519IV), cipherText: fromBase64(mySpecs.privateEd25519Crypto) }
     );
     const plainX25519 = await aesDecrypt(
-        hash, { iv: fromBase64(mySpecs.privateX25519IV), cipherText: fromBase64(mySpecs.privateX25519Crypto) }
+        kek, { iv: fromBase64(mySpecs.privateX25519IV), cipherText: fromBase64(mySpecs.privateX25519Crypto) }
     );
 
     return {
@@ -61,11 +58,12 @@ export async function decryptKeys(mySpecs: UserCryptoDto, password: string): Pro
 }
 
 export async function reEncryptSpecs(oldPassword: string, newPassword: string, oldSpecs: UserCryptoDto): Promise<UserCryptoDto> {
-    const decryptedCryptoSpecs = await decryptKeys(oldSpecs, oldPassword);
-
+    const decryptedCryptoSpecs = await decryptKeys(oldSpecs, oldPassword)
     const newSalt = generateArgonSalt();
-    const newEd25519Crypto = await encryptKeyWithKek(newPassword, newSalt, decryptedCryptoSpecs.privateEd25519);
-    const newX25519Crypto = await encryptKeyWithKek(newPassword, newSalt, decryptedCryptoSpecs.privateX25519);
+    const kek = argon2idForKek(newPassword, newSalt);
+
+    const newEd25519Crypto = await aesEncrypt(kek, decryptedCryptoSpecs.privateEd25519);
+    const newX25519Crypto = await aesEncrypt(kek, decryptedCryptoSpecs.privateX25519);
 
     return {
         id: oldSpecs.id,
