@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ed25519, x25519 } from '@noble/curves/ed25519.js';
+
+vi.mock('@/crypto/argon2.ts', async () => {
+    const { argon2id } = await import('@noble/hashes/argon2.js');
+    return {
+        deriveKek: async (password: string, salt: Uint8Array) =>
+            argon2id(password, salt, { t: 3, m: 65536, p: 4, dkLen: 32 }),
+    };
+});
 
 import { bootstrapUserCrypto, decryptKeys, reEncryptSpecs } from '@/crypto/kek';
 

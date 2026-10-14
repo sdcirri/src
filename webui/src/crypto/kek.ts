@@ -1,9 +1,9 @@
-import { argon2id } from '@noble/hashes/argon2.js';
-
 import type { UserCryptoDto, UserRegistrationFinalizationRequest } from '@/api/types.ts';
 
 import { aesDecrypt, aesEncrypt, fromBase64, toBase64 } from '@/crypto/common.ts';
 import { generateKeyMaterial } from '@/crypto/keys.ts';
+
+import { deriveKek } from './argon2.ts';
 
 export type DecryptedCryptoSpecs = {
     privateEd25519: Uint8Array;
@@ -12,10 +12,6 @@ export type DecryptedCryptoSpecs = {
     publicX25519: Uint8Array;
 };
 
-function argon2idForKek(password: string, salt: Uint8Array): Uint8Array {
-    return argon2id(password, salt, { t: 3, m: 65536, p: 4, dkLen: 32 });
-}
-
 function generateArgonSalt(): Uint8Array {
     return crypto.getRandomValues(new Uint8Array(32));
 }
@@ -23,7 +19,7 @@ function generateArgonSalt(): Uint8Array {
 export async function bootstrapUserCrypto(password: string): Promise<UserRegistrationFinalizationRequest> {
     const keyMaterial = generateKeyMaterial();
     const kekSalt = generateArgonSalt();
-    const kek = argon2idForKek(password, kekSalt);
+    const kek = await deriveKek(password, kekSalt);
 
     const ed25519Crypto = await aesEncrypt(kek, keyMaterial.ed25519.privateKey);
     const x25519Crypto = await aesEncrypt(kek, keyMaterial.x25519.privateKey);
@@ -41,7 +37,7 @@ export async function bootstrapUserCrypto(password: string): Promise<UserRegistr
 }
 
 export async function decryptKeys(mySpecs: UserCryptoDto, password: string): Promise<DecryptedCryptoSpecs> {
-    const kek = argon2idForKek(password, fromBase64(mySpecs.kekSalt));
+    const kek = await deriveKek(password, fromBase64(mySpecs.kekSalt));
     const plainEd25519 = await aesDecrypt(
         kek, { iv: fromBase64(mySpecs.privateEd25519IV), cipherText: fromBase64(mySpecs.privateEd25519Crypto) }
     );
@@ -60,7 +56,7 @@ export async function decryptKeys(mySpecs: UserCryptoDto, password: string): Pro
 export async function reEncryptSpecs(oldPassword: string, newPassword: string, oldSpecs: UserCryptoDto): Promise<UserCryptoDto> {
     const decryptedCryptoSpecs = await decryptKeys(oldSpecs, oldPassword)
     const newSalt = generateArgonSalt();
-    const kek = argon2idForKek(newPassword, newSalt);
+    const kek = await deriveKek(newPassword, newSalt);
 
     const newEd25519Crypto = await aesEncrypt(kek, decryptedCryptoSpecs.privateEd25519);
     const newX25519Crypto = await aesEncrypt(kek, decryptedCryptoSpecs.privateX25519);
