@@ -23,11 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
+
+import static it.sdc.src.utils.HashingUtils.sha512;
 
 @Service
 @RequiredArgsConstructor
@@ -58,14 +58,6 @@ public class AuthService {
             // worth checking even if possibility is astronomically low
         }  while (Arrays.equals(accessToken, refreshToken));
         return new byte[][]{accessToken, refreshToken};
-    }
-
-    private static byte[] sha512(byte[] data) {
-        try {
-            return MessageDigest.getInstance("SHA-512").digest(data);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
-        }
     }
 
     /**

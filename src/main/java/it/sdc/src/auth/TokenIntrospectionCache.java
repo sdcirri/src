@@ -8,12 +8,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 import org.springframework.stereotype.Component;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
+
+import static it.sdc.src.utils.HashingUtils.sha512;
 
 @Component
 @RequiredArgsConstructor
@@ -29,14 +29,6 @@ public class TokenIntrospectionCache {
             .maximumSize(10_000)
             .expireAfterWrite(Duration.ofMinutes(15))
             .build();
-
-    private static byte[] sha512(byte[] data) {
-        try {
-            return MessageDigest.getInstance("SHA-512").digest(data);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
-        }
-    }
 
     private static byte[] decodeToken(String token) {
         try {

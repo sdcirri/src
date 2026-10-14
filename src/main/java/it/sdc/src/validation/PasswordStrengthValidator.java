@@ -9,10 +9,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.regex.Pattern;
+
+import static it.sdc.src.utils.HashingUtils.sha1;
 
 public class PasswordStrengthValidator implements ConstraintValidator<StrongPassword, String> {
     private static final Pattern[] MANDATORY_PATTERNS = {
@@ -64,17 +64,11 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
      * @return whether the password was involved in a data breach
      */
     private boolean isPwned(String password) {
-        String sha1;
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-1").digest(password.getBytes(StandardCharsets.UTF_8));
-            sha1 = HexFormat.of().withUpperCase().formatHex(hash);
-        }
-        // Impossible on compliant JDK
-        catch (NoSuchAlgorithmException ignored) {
-            throw new IllegalStateException("SHA-1 algorithm not supported");
-        }
-
+        String sha1 = HexFormat.of().withUpperCase().formatHex(
+                sha1(password.getBytes(StandardCharsets.UTF_8))
+        );
         String prefix = sha1.substring(0, 5), response;
+
         try {
             response = httpClient.send(
                     HttpRequest.newBuilder(URI.create("https://api.pwnedpasswords.com/range/" + prefix)).GET().build(),

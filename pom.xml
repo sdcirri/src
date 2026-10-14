@@ -258,6 +258,7 @@
                     <excludes>
                         <exclude>it/sdc/src/db/**</exclude>
                         <exclude>it/sdc/src/dto/**</exclude>
+                        <exclude>it/sdc/src/utils/HashingUtils.class</exclude>
                         <exclude>it/sdc/src/SrcApplication.class</exclude>
                     </excludes>
                 </configuration>
