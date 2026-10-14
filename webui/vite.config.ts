@@ -15,6 +15,8 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     testTimeout: 60_000,
     coverage: {
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.d.ts'],
       provider: 'v8',
       reporter: ['text', 'html']
     }
