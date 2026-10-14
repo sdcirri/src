@@ -227,7 +227,6 @@ public class ChatControllerIntegrationTest {
         MvcResult result = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "20")
-                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -255,7 +254,6 @@ public class ChatControllerIntegrationTest {
         MvcResult firstPage = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "10")
-                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -267,7 +265,7 @@ public class ChatControllerIntegrationTest {
         MvcResult secondPage = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "10")
-                        .param("p", "1")
+                        .param("before", page0.getLast().id().toString())
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -279,7 +277,7 @@ public class ChatControllerIntegrationTest {
         MvcResult thirdPage = mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "10")
-                        .param("p", "2")
+                        .param("before", page1.getLast().id().toString())
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isOk()).andReturn();
@@ -303,7 +301,6 @@ public class ChatControllerIntegrationTest {
         mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "0")
-                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isBadRequest());
@@ -311,7 +308,7 @@ public class ChatControllerIntegrationTest {
         mockMvc.perform(
                 get("/chats/{contactId}", user2.getId())
                         .param("n", "10")
-                        .param("p", "-1")
+                        .param("before", "bad uuid")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isBadRequest());
@@ -332,7 +329,6 @@ public class ChatControllerIntegrationTest {
         mockMvc.perform(
                 get("/chats/{contactId}", UUID.randomUUID())
                         .param("n", "10")
-                        .param("p", "0")
                         .cookie(mockAccessCookie(session))
                         .accept(MediaType.APPLICATION_JSON)
         ).andExpect(status().isNotFound());
@@ -383,7 +379,7 @@ public class ChatControllerIntegrationTest {
         ChatDB chat = chats.getFirst();
 
         assertThat(
-                messageRepository.findByChatIdOrderByTimestampDesc(chat.getId(), Pageable.ofSize(10))
+                messageRepository.findByChatIdOrderByTimestampDescIdDesc(chat.getId(), Pageable.ofSize(10))
         ).hasSize(1);
     }
 

@@ -5,8 +5,9 @@ import type { DecryptedCryptoSpecs } from '@/crypto/kek.ts';
 import { fromBase64, toBase64 } from '@/crypto/common.ts';
 import { encryptMessage } from '@/crypto/messaging.ts';
 
-export async function getChat(contactId: string, pageNumber: number = 0): Promise<MessageDto[]> {
-    return request<MessageDto[]>(`/chats/${contactId}?n=30&p=${pageNumber}`);
+export async function getChat(contactId: string, before?: string): Promise<MessageDto[]> {
+    const cursor = before ? `&before=${before}` : '';
+    return request<MessageDto[]>(`/chats/${contactId}?n=30${cursor}`);
 }
 
 export async function getChats(): Promise<ChatDto[]> {

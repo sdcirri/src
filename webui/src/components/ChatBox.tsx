@@ -22,7 +22,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     const [contactCrypto, setContactCrypto] = useState<ContactCryptoDto | null>(null);
     const [messages, setMessages] = useState<MessageDto[]>([]);
     const [draft, setDraft] = useState('');
-    const [page, setPage] = useState(0);
+    const [cursor, setCursor] = useState<string | null>(null);
     const [hasMore, setHasMore] = useState<boolean>(false);
     const [loadingMore, setLoadingMore] = useState<boolean>(false);
 
@@ -57,8 +57,10 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
     }
 
     function onLoadMore() {
+        const oldest = messages[0];
+        if (!oldest || loadingMore) return;
         setLoadingMore(true);
-        setPage(p => p + 1);
+        setCursor(oldest.id);
     }
 
     useEffect(() => {
@@ -81,7 +83,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                 setLoadingMore(true);
                 let history: MessageDto[];
                 try {
-                    history = await getChat(user.id, page);
+                    history = await getChat(user.id, cursor ?? undefined);
                     setHasMore(history.length === 30);
                 } catch {
                     history = [];
@@ -99,7 +101,7 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
 
         load();
         return () => { cancelled = true; };
-    }, [contactId, page]);
+    }, [contactId, cursor]);
 
     return (
         <div id='chat-container'>

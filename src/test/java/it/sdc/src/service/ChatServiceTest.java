@@ -240,7 +240,7 @@ class ChatServiceTest {
 
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
-        when(userRepository.findById(myUserId)).thenReturn(Optional.empty());
+        when(userRepository.findById(contactId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatService.sendMessage(myUserId, contactId, validMessageRequest()))
                 .isInstanceOf(UserNotFoundException.class);
@@ -261,7 +261,7 @@ class ChatServiceTest {
         when(chat.getId()).thenReturn(chatId);
         List<MessageDB> messages = mockMessageHistory(chat, myUser, contactUser);
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
-        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+        when(messageRepository.findByChatIdOrderByTimestampDescIdDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
                 .thenReturn(messages);
         when(messageMapper.toDto(any(MessageDB.class), any(UUID.class))).thenAnswer(invocation -> {
             MessageDB message = (MessageDB) invocation.getArguments()[0];
@@ -277,8 +277,8 @@ class ChatServiceTest {
             );
         });
 
-        List<MessageDto> result1 = chatService.getMessages(myUserId, contactId, 0, 20);
-        List<MessageDto> result2 = chatService.getMessages(contactId, myUserId, 0, 20);
+        List<MessageDto> result1 = chatService.getMessages(myUserId, contactId, null, 20);
+        List<MessageDto> result2 = chatService.getMessages(contactId, myUserId, null, 20);
         assertThat(specularHistories(result1, result2)).isTrue();
     }
 
@@ -291,13 +291,13 @@ class ChatServiceTest {
         ChatDB chat = mock(ChatDB.class);
         when(chat.getId()).thenReturn(chatId);
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
-        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+        when(messageRepository.findByChatIdOrderByTimestampDescIdDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
                 .thenReturn(List.of());
 
         chatService.getMessages(myUserId, contactId, null, null);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(messageRepository).findByChatIdOrderByTimestampDesc(eq(chatId), pageableCaptor.capture());
+        verify(messageRepository).findByChatIdOrderByTimestampDescIdDesc(eq(chatId), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
     }
@@ -307,18 +307,24 @@ class ChatServiceTest {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000099");
+        UUID cursor = UUID.fromString("00000000-0000-0000-0000-000000000069");
+        Instant timestamp = Instant.now();
+
+        MessageDB beforeMessage = mock(MessageDB.class);
+        when(beforeMessage.getId()).thenReturn(cursor);
+        when(beforeMessage.getTimestamp()).thenReturn(timestamp);
 
         ChatDB chat = mock(ChatDB.class);
         when(chat.getId()).thenReturn(chatId);
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
-        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
+        when(messageRepository.findByChatIdOrderByTimestampDescIdDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
                 .thenReturn(List.of());
+        when(messageRepository.findByIdAndChatId(eq(cursor), eq(chatId))).thenReturn(Optional.of(beforeMessage));
 
-        chatService.getMessages(myUserId, contactId, 2, 5);
+        chatService.getMessages(myUserId, contactId, cursor, 5);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(messageRepository).findByChatIdOrderByTimestampDesc(eq(chatId), pageableCaptor.capture());
-        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+        verify(messageRepository).findBefore(eq(chatId), eq(timestamp), eq(cursor), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
     }
 
@@ -335,12 +341,20 @@ class ChatServiceTest {
         when(chat.getId()).thenReturn(chatId);
         List<MessageDB> allMessages = mockMessageHistory(chat, myUser, contactUser);
         List<MessageDB> pageMessages = allMessages.subList(0, 3);
-        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
-        when(messageRepository.findByChatIdOrderByTimestampDesc(eq(chatId), ArgumentMatchers.any(Pageable.class)))
-                .thenReturn(pageMessages);
-        when(messageMapper.toDto(any(MessageDB.class), eq(myUserId))).thenReturn(mock(MessageDto.class));
+        MessageDB beforeMessage = pageMessages.getLast();
 
-        List<MessageDto> result = chatService.getMessages(myUserId, contactId, 1, 3);
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId)).thenReturn(Optional.of(chat));
+        when(messageRepository.findBefore(
+                eq(chatId),
+                eq(beforeMessage.getTimestamp()),
+                eq(beforeMessage.getId()),
+                ArgumentMatchers.any(Pageable.class))
+        ).thenReturn(pageMessages);
+        when(messageMapper.toDto(any(MessageDB.class), eq(myUserId))).thenReturn(mock(MessageDto.class));
+        when(messageRepository.findByIdAndChatId(eq(beforeMessage.getId()), eq(chatId)))
+                .thenReturn(Optional.of(pageMessages.getLast()));
+
+        List<MessageDto> result = chatService.getMessages(myUserId, contactId, beforeMessage.getId(), 3);
 
         assertThat(result).hasSize(3);
         verify(messageMapper, times(3)).toDto(any(MessageDB.class), eq(myUserId));
@@ -354,9 +368,26 @@ class ChatServiceTest {
         when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> chatService.getMessages(myUserId, contactId, 0, 20))
-                .isInstanceOf(ChatNotFoundException.class);
+        assertThatThrownBy(
+                () -> chatService.getMessages(myUserId, contactId, null, 20)
+        ).isInstanceOf(ChatNotFoundException.class);
 
-        verify(messageRepository, never()).findByChatIdOrderByTimestampDesc(any(), any());
+        verify(messageRepository, never()).findByChatIdOrderByTimestampDescIdDesc(any(), any());
+    }
+
+    @Test
+    void getMessages_shouldThrowChatNotFoundException_onBadCursor() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID cursor = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
+                .thenReturn(Optional.of(mock(ChatDB.class)));
+        when(messageRepository.findByIdAndChatId(cursor, UUID.randomUUID()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                () -> chatService.getMessages(myUserId, contactId, cursor, 20)
+        ).isInstanceOf(ChatNotFoundException.class);
     }
 }

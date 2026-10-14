@@ -134,7 +134,7 @@ public class ChatService {
      * @param contactUserId contact user ID
      * @return the messaging history between the two users
      */
-    public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId, Integer pageNumber, Integer pageSize) {
+    public List<MessageDto> getMessages(UUID myUserId, UUID contactUserId, UUID before, Integer pageSize) {
         UUID user1Id = myUserId.toString().compareTo(contactUserId.toString()) < 0 ? myUserId : contactUserId;
         UUID user2Id = myUserId.toString().equals(user1Id.toString()) ? contactUserId : myUserId;
         ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
@@ -142,10 +142,20 @@ public class ChatService {
         );
 
         if (pageSize == null) pageSize = 20;
-        if (pageNumber == null) pageNumber = 0;
 
-        return messageRepository.findByChatIdOrderByTimestampDesc(chat.getId(), PageRequest.of(pageNumber, pageSize))
-                .stream()
+        PageRequest limit = PageRequest.of(0, pageSize);
+        List<MessageDB> messages;
+
+        if (before == null)
+            messages = messageRepository.findByChatIdOrderByTimestampDescIdDesc(chat.getId(), limit);
+        else {
+            MessageDB cursor = messageRepository.findByIdAndChatId(before, chat.getId())
+                    .orElseThrow(() -> new ChatNotFoundException("Message cursor not found"));
+
+            messages = messageRepository.findBefore(chat.getId(), cursor.getTimestamp(), cursor.getId(), limit);
+        }
+
+        return messages.stream()
                 .map(msg -> messageMapper.toDto(msg, myUserId))
                 .toList();
     }

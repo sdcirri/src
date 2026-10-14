@@ -40,15 +40,15 @@ describe('getChat', () => {
         }];
         request.mockResolvedValue(messages);
 
-        expect(await getChat('6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412', 2)).toEqual(messages);
-        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30&p=2');
+        expect(await getChat('6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412', '3785eb96-d74b-4dd0-8307-f126fc59a20f')).toEqual(messages);
+        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30&before=3785eb96-d74b-4dd0-8307-f126fc59a20f');
     });
 
-    it('defaults pageNumber to 0', async () => {
+    it('undefined cursor does not pass "before" param to query string', async () => {
         request.mockResolvedValue([]);
 
         expect(await getChat('6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412')).toEqual([]);
-        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30&p=0');
+        expect(request).toHaveBeenCalledWith('/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412?n=30');
     });
 });
 

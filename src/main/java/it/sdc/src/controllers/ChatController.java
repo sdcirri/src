@@ -8,7 +8,6 @@ import it.sdc.src.service.ChatService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -35,9 +34,9 @@ public class ChatController {
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable UUID contactId,
             @RequestParam("n") @Min(1) @Max(30) Integer pageSize,
-            @RequestParam("p") @PositiveOrZero Integer pageNumber
+            @RequestParam(value = "before", required = false) UUID before
     ) {
-        return chatService.getMessages(userPrincipal.getUserId(), contactId, pageNumber, pageSize);
+        return chatService.getMessages(userPrincipal.getUserId(), contactId, before, pageSize);
     }
 
     @PostMapping("/{contactId}")
