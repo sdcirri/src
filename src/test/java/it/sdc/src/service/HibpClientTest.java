@@ -16,7 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @SuppressWarnings("unchecked")
-class HibpClientTest {
+public class HibpClientTest {
     private HttpClient httpClient;
     private HibpClient hibpClient;
 
