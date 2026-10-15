@@ -43,6 +43,7 @@ public class AuthService {
 
     private final WebSocketSessionRegistry webSocketSessionRegistry;
     private final TokenIntrospectionCache tokenIntrospectionCache;
+    private final HibpClient hibpClient;
 
     private final AuthProperties authProperties;
 
@@ -163,6 +164,9 @@ public class AuthService {
         if (userRepository.existsByUsername(request.username()))
             throw new UsernameAlreadyTakenException("Username is already taken");
 
+        if (hibpClient.isPwned(request.password()))
+            throw new PwnedPasswordException("Password is involved in a data breach!");
+
         UserDB newUser = UserDB.builder()
                 .username(request.username())
                 .displayName(request.displayName())
@@ -224,6 +228,10 @@ public class AuthService {
             throw new BadPasswordException("Old password is not correct");
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash()))
             throw new PasswordConflictException("New password should not be the same as the old password");
+
+        if (hibpClient.isPwned(request.newPassword()))
+            throw new PwnedPasswordException("Password is involved in a data breach!");
+
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 
         Base64.Decoder decoder = Base64.getDecoder();

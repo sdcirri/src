@@ -22,17 +22,6 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
             Pattern.compile("[^A-Za-z0-9]")
     };
 
-    private final HttpClient httpClient;
-
-    public PasswordStrengthValidator() {
-        this(HttpClient.newHttpClient());
-    }
-
-    // package-private constructor for tests
-    PasswordStrengthValidator(HttpClient httpClient) {
-        this.httpClient = httpClient;
-    }
-
     /**
      * Check the password for:
      *  - at least one uppercase letter
@@ -56,40 +45,8 @@ public class PasswordStrengthValidator implements ConstraintValidator<StrongPass
         return true;
     }
 
-    /**
-     * Look up the user password on HIBP to check whether
-     * it was involved in data breaches
-     * If the service is unavailable the password is considered not PWNed
-     * @param password user chosen password
-     * @return whether the password was involved in a data breach
-     */
-    private boolean isPwned(String password) {
-        String sha1 = HexFormat.of().withUpperCase().formatHex(
-                sha1(password.getBytes(StandardCharsets.UTF_8))
-        );
-        String prefix = sha1.substring(0, 5), response;
-
-        try {
-            response = httpClient.send(
-                    HttpRequest.newBuilder(URI.create("https://api.pwnedpasswords.com/range/" + prefix)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString()
-            ).body();
-        }
-        catch (IOException | InterruptedException e) {
-            // Service unavailable
-            return false;
-        }
-
-        for (String line : response.split("\n")) {
-            String pwnedHash = prefix + line.split(":")[0].toUpperCase();
-            if (sha1.equals(pwnedHash))
-                return true;
-        }
-        return false;
-    }
-
     @Override
     public boolean isValid(String value, ConstraintValidatorContext ctx) {
-        return value == null || (isStrong(value) && !isPwned(value));
+        return value == null || isStrong(value);
     }
 }

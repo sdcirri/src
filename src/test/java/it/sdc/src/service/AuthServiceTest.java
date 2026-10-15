@@ -42,11 +42,19 @@ public class AuthServiceTest {
     private UserDBRepository userRepository;
     private TokenIntrospectionCache tokenIntrospectionCache;
     private WebSocketSessionRegistry webSocketSessionRegistry;
+    private HibpClient hibpClient;
 
     private AuthService authService;
 
     private static String b64(byte... bytes) {
         return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    private AuthProperties authProperties() {
+        AuthProperties authProperties = new AuthProperties();
+        authProperties.setAccessTokenValiditySeconds(3600);
+        authProperties.setRefreshTokenValiditySeconds(3600);
+        return authProperties;
     }
 
     private UserRegistrationFinalizationRequest validFinalizationRequest() {
@@ -85,6 +93,7 @@ public class AuthServiceTest {
         userRepository = mock(UserDBRepository.class);
         tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
         webSocketSessionRegistry = mock(WebSocketSessionRegistry.class);
+        hibpClient = mock(HibpClient.class);
 
         AuthProperties authProperties = new AuthProperties();
         authProperties.setAccessTokenValiditySeconds(3600);
@@ -99,6 +108,7 @@ public class AuthServiceTest {
                 userCryptoMapper,
                 webSocketSessionRegistry,
                 tokenIntrospectionCache,
+                hibpClient,
                 authProperties
         );
     }
@@ -176,6 +186,7 @@ public class AuthServiceTest {
                 new UserCryptoMapper(),
                 webSocketSessionRegistry,
                 tokenIntrospectionCache,
+                hibpClient,
                 authProperties()
         );
 
@@ -200,13 +211,6 @@ public class AuthServiceTest {
         assertThat(result.accessToken()).isNotBlank();
         assertThat(result.refreshToken()).isNotBlank();
         verify(collidingRandom, atLeast(4)).nextBytes(any(byte[].class));
-    }
-
-    private AuthProperties authProperties() {
-        AuthProperties authProperties = new AuthProperties();
-        authProperties.setAccessTokenValiditySeconds(3600);
-        authProperties.setRefreshTokenValiditySeconds(3600);
-        return authProperties;
     }
 
     @Test
@@ -338,6 +342,15 @@ public class AuthServiceTest {
         UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
 
         assertThatThrownBy(() -> authService.register(request)).isInstanceOf(UsernameAlreadyTakenException.class);
+    }
+
+    @Test
+    void register_shouldRejectPwnedPassword() {
+        when(hibpClient.isPwned(anyString())).thenReturn(true);
+
+        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
+
+        assertThatThrownBy(() -> authService.register(request)).isInstanceOf(PwnedPasswordException.class);
     }
 
     @Test
@@ -532,6 +545,25 @@ public class AuthServiceTest {
         assertThatThrownBy(
                 () -> authService.changePassword(userId, validPasswordChangeRequest(oldPassword, oldPassword))
         ).isInstanceOf(PasswordConflictException.class);
+    }
+
+    @Test
+    void changePassword_shouldRejectPwnedPassword() {
+        UUID userId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        String oldPassword = "oldPassword", newPassword = "newPassword";
+        when(user.getId()).thenReturn(userId);
+        when(user.getPasswordHash()).thenReturn("oldPasswordHash");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(true);
+        when(passwordEncoder.matches(newPassword, "oldPasswordHash")).thenReturn(false);
+
+        when(hibpClient.isPwned(anyString())).thenReturn(true);
+
+        assertThatThrownBy(
+                () -> authService.changePassword(userId, validPasswordChangeRequest(oldPassword, newPassword))
+        ).isInstanceOf(PwnedPasswordException.class);
     }
 
     @Test
