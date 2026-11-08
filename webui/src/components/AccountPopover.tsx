@@ -11,10 +11,6 @@ import '@/css/forms.css';
 function AccountPopover() {
     const { session, updateUser } = useSession();
     const [accountOpen, setAccountOpen] = useState(false);
-    const [draft, setDraft] = useState<{ username: string; displayName: string } | null>(null);
-
-    const username = draft?.username ?? session.user?.username ?? '';
-    const displayName = draft?.displayName ?? session.user?.displayName ?? '';
 
     async function onSubmit(e: SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -62,14 +58,12 @@ function AccountPopover() {
                             id='displayName'
                             name='displayName'
                             defaultValue={session.user.displayName ?? ''}
-                            onSubmit={e => setDraft({ username, displayName: e.target.value })}
                         />
                         <label htmlFor='username'>Username</label>
                         <input
                             id='username'
                             name='username'
                             defaultValue={session.user.username}
-                            onSubmit={e => setDraft({ username: e.target.value, displayName })}
                         />
                         <button type='submit'>Save</button>
                         <button type='button' onClick={() => setAccountOpen(false)}>Cancel</button>
