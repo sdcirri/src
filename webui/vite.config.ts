@@ -16,7 +16,7 @@ export default defineConfig({
     testTimeout: 60_000,
     coverage: {
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.d.ts'],
+      exclude: ['src/**/*.d.ts', 'src/main.tsx'],
       provider: 'v8',
       reporter: ['text', 'html']
     }
