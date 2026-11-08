@@ -32,13 +32,15 @@ function App() {
             return <UnlockPage />;
         case 'registration-incomplete':
             return <ResumeRegistrationPage />;
-        default:
+        case 'unlocked':
             return (
                 <Routes>
                     <Route path='/' element={<MainPage />} />
                     <Route path='*' element={<Navigate to='/' replace />} />
                 </Routes>
             );
+        default:
+            return null;
     }
 }
 
