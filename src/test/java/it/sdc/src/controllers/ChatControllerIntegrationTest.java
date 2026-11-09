@@ -359,6 +359,33 @@ public class ChatControllerIntegrationTest {
     }
 
     @Test
+    void sendMessage_sentMessageShouldStartUnread() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        ChatDB chat = chatRepository.save(mockChat(user, contact));
+        mockMessageHistory(chat, 1);
+
+        MessageRequest request = mockMessageRequest();
+
+        MvcResult result = mockMvc.perform(
+                post("/chats/{contactId}", contact.getId())
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(mockAccessCookie(session))
+                        .content(objectMapper.writeValueAsString(request))
+        ).andExpect(status().isCreated()).andReturn();
+
+        MessageDto sent = objectMapper.readValue(result.getResponse().getContentAsString(), MessageDto.class);
+        UUID messageId = sent.id();
+
+        MessageDB persisted = messageRepository.findById(messageId).orElseThrow(
+                () -> new Exception("Message with ID " + messageId + " not found, that's very very bad ...")
+        );
+        assertThat(persisted.isRead()).isFalse();
+    }
+
+    @Test
     void sendMessage_shouldCreateChatIfNotExists() throws Exception {
         UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
         UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
@@ -420,5 +447,62 @@ public class ChatControllerIntegrationTest {
                         .cookie(mockAccessCookie(session))
                         .content(objectMapper.writeValueAsString(badRequest))
         ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void readMessage_shouldReadMessage() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        ChatDB chat = chatRepository.save(mockChat(user, contact));
+        byte[] iv = new byte[16], data = new byte[128];
+        secureRandom.nextBytes(iv);
+        secureRandom.nextBytes(data);
+
+        MessageDB message = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+
+        mockMvc.perform(
+                post("/chats/{contactId}/messages/{messageId}/read", contact.getId(), message.getId())
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(mockAccessCookie(session))
+        ).andExpect(status().isNoContent());
+
+        message = messageRepository.findById(message.getId()).get();
+        assertThat(message.isRead()).isTrue();
+    }
+
+    @Test
+    void readMessage_shouldErrorOnNonexistentChat() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+
+        mockMvc.perform(
+                post("/chats/{contactId}/messages/{messageId}/read", UUID.randomUUID(), UUID.randomUUID())
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
+        ).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void readMessage_shouldErrorOnNonexistentMessage() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        chatRepository.save(mockChat(user, contact));
+
+        mockMvc.perform(
+                post("/chats/{contactId}/messages/{messageId}/read", contact.getId(), UUID.randomUUID())
+                        .with(csrf())
+                        .cookie(mockAccessCookie(session))
+        ).andExpect(status().isNotFound());
     }
 }

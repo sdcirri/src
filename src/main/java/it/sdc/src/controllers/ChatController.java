@@ -48,4 +48,14 @@ public class ChatController {
     ) {
         return chatService.sendMessage(userPrincipal.getUserId(), contactId, request);
     }
+
+    @PostMapping("/{contactId}/messages/{messageId}/read")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void readMessage(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable UUID contactId,
+            @PathVariable UUID messageId
+    ) {
+        chatService.readMessage(userPrincipal.getUserId(), contactId, messageId);
+    }
 }

@@ -26,6 +26,10 @@ public class MessageDB {
     @Column(nullable = false)
     private Instant timestamp;
 
+    @Column(nullable = false)
+    @Setter
+    private boolean read;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
             name = "chat_id",

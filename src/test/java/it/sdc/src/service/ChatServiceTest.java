@@ -9,6 +9,7 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
+import it.sdc.src.exceptions.MessageNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
@@ -389,5 +390,58 @@ class ChatServiceTest {
         assertThatThrownBy(
                 () -> chatService.getMessages(myUserId, contactId, cursor, 20)
         ).isInstanceOf(ChatNotFoundException.class);
+    }
+
+    @Test
+    void readMessage_shouldFlagMessageAsRead() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        UUID messageId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        ChatDB chat = mock(ChatDB.class);
+        when(chat.getId()).thenReturn(chatId);
+        MessageDB messageToRead = mock(MessageDB.class);
+
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
+                .thenReturn(Optional.of(chat));
+        when(messageRepository.findByIdAndChatId(messageId, chatId))
+                .thenReturn(Optional.of(messageToRead));
+
+        chatService.readMessage(myUserId, contactId, messageId);
+
+        verify(messageRepository).findByIdAndChatId(messageId, chatId);
+        verify(messageToRead).setRead(true);
+    }
+
+    @Test
+    void readMessage_shouldThrowChatNotFoundException_whenChatDoesNotExist() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                () -> chatService.readMessage(myUserId, contactId, UUID.randomUUID())
+        ).isInstanceOf(ChatNotFoundException.class);
+    }
+
+    @Test
+    void readMessage_shouldThrowMessageNotFoundException_whenMessageDoesNotExist() {
+        UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        UUID messageId = UUID.fromString("00000000-0000-0000-0000-000000000004");
+
+        when(chatRepository.findByUser1_IdAndUser2_Id(myUserId, contactId))
+                .thenReturn(Optional.of(mock(ChatDB.class)));
+
+        when(messageRepository.findByIdAndChatId(messageId, chatId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                () -> chatService.readMessage(myUserId, contactId, messageId)
+        ).isInstanceOf(MessageNotFoundException.class);
     }
 }

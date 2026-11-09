@@ -10,10 +10,12 @@ import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.exceptions.ChatNotFoundException;
+import it.sdc.src.exceptions.MessageNotFoundException;
 import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -158,5 +160,18 @@ public class ChatService {
         return messages.stream()
                 .map(msg -> messageMapper.toDto(msg, myUserId))
                 .toList();
+    }
+
+    public void readMessage(UUID myUserId, UUID contactUserId, UUID messageId) {
+        UUID user1Id = myUserId.toString().compareTo(contactUserId.toString()) < 0 ? myUserId : contactUserId;
+        UUID user2Id = myUserId.toString().equals(user1Id.toString()) ? contactUserId : myUserId;
+        ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
+                () -> new ChatNotFoundException("Chat not found")
+        );
+        MessageDB message = messageRepository.findByIdAndChatId(messageId, chat.getId()).orElseThrow(
+                () -> new MessageNotFoundException("Message not found")
+        );
+        message.setRead(true);
+        messageRepository.save(message);
     }
 }
