@@ -14,6 +14,10 @@ public class ChatMapper {
     private final MessageMapper messageMapper;
 
     public ChatDto toDto(ChatDB chat, MessageDB lastMessage, UUID userId) {
+        return toDto(chat, lastMessage, userId, 0);
+    }
+
+    public ChatDto toDto(ChatDB chat, MessageDB lastMessage, UUID userId, long unreadCount) {
         UUID user1Id = chat.getUser1().getId(), user2Id = chat.getUser2().getId();
 
         if (!userId.equals(user1Id) && !userId.equals(user2Id))
@@ -22,7 +26,8 @@ public class ChatMapper {
         return new ChatDto(
                 chat.getId(),
                 user1Id.equals(userId) ? user2Id : user1Id,
-                messageMapper.toDto(lastMessage, userId)
+                messageMapper.toDto(lastMessage, userId),
+                unreadCount
         );
     }
 }

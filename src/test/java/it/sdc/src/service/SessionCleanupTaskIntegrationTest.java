@@ -4,8 +4,10 @@ import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
+import it.sdc.src.test.fixtures.UserFixtures;
 import it.sdc.src.ws.WebSocketSessionRegistry;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -58,6 +60,11 @@ public class SessionCleanupTaskIntegrationTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        UserFixtures.resetUserCounter();
+    }
 
     @AfterEach
     void tearDown() {

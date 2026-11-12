@@ -44,11 +44,11 @@ public class ChatMapperTest {
         when(messageMapper.toDto(eq(lastMessageDB), any(UUID.class))).thenReturn(lastMessage);
 
         ChatDto result = chatMapper.toDto(chatDB, lastMessageDB, user1Id);
-        assertThat(result).isEqualTo(new ChatDto(chatId, user2Id, lastMessage));
+        assertThat(result).isEqualTo(new ChatDto(chatId, user2Id, lastMessage, 0));
         verify(messageMapper).toDto(lastMessageDB, user1Id);
 
         result = chatMapper.toDto(chatDB, lastMessageDB, user2Id);
-        assertThat(result).isEqualTo(new ChatDto(chatId, user1Id, lastMessage));
+        assertThat(result).isEqualTo(new ChatDto(chatId, user1Id, lastMessage, 0));
         verify(messageMapper).toDto(lastMessageDB, user2Id);
     }
 

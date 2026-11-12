@@ -12,8 +12,10 @@ import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.service.AuthCookieService;
+import it.sdc.src.test.fixtures.UserFixtures;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -138,6 +140,11 @@ public class AuthControllerIntegrationTest {
         assertThat(findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME)).isPresent();
         assertThat(findCookieValue(result, AuthCookieService.ACCESS_COOKIE_NAME).orElseThrow()).isNotBlank();
         assertThat(findCookieValue(result, AuthCookieService.REFRESH_COOKIE_NAME).orElseThrow()).isNotBlank();
+    }
+
+    @BeforeEach
+    void setUp() {
+        UserFixtures.resetUserCounter();
     }
 
     @AfterEach

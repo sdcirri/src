@@ -8,12 +8,17 @@ import java.util.UUID;
 
 public final class UserFixtures {
     public static final String USER_PASSWORD = "m#f$$#rdw89X&%jyD5b*mkf^";
+    private static int userCounter = 1;
 
-    public static UserDB mockUser(PasswordEncoder passwordEncoder) {
-        return mockUser(passwordEncoder, 1);
+    public static void resetUserCounter() {
+        userCounter = 1;
     }
 
-    public static UserDB mockUser(PasswordEncoder passwordEncoder, int seq) {
+    public static UserDB mockUser(PasswordEncoder passwordEncoder) {
+        return mockUser(passwordEncoder, userCounter++);
+    }
+
+    private static UserDB mockUser(PasswordEncoder passwordEncoder, int seq) {
         return UserDB.builder()
                 .username("user"+seq)
                 .displayName("User "+seq)

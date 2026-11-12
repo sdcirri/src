@@ -6,6 +6,7 @@ import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.repositories.ChatDBRepository;
 import it.sdc.src.db.repositories.MessageDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
+import it.sdc.src.db.repositories.projections.UnreadMessagesCount;
 import it.sdc.src.dto.ChatDto;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
@@ -15,7 +16,6 @@ import it.sdc.src.exceptions.SelfChatException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.service.mapping.ChatMapper;
 import it.sdc.src.service.mapping.MessageMapper;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -26,10 +26,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -51,12 +49,22 @@ public class ChatService {
      */
     @Transactional(readOnly = true)
     public List<ChatDto> getChats(UUID myUserId) {
-        return chatRepository.findByUserId(myUserId).stream()
+        List<ChatDB> chats = chatRepository.findByUserId(myUserId);
+        List<UUID> chatIds = chats.stream().map(ChatDB::getId).toList();
+        Map<UUID, Long> unreadCounts = messageRepository
+                .countUnreadByChatIds(chatIds, myUserId)
+                .stream()
+                .collect(Collectors.toMap(
+                        UnreadMessagesCount::getChatId,
+                        UnreadMessagesCount::getUnreadCount
+                ));
+        return chats.stream()
                 .map(chat -> {
                     MessageDB lastMessage = messageRepository
                             .findFirstByChatIdOrderByTimestampDescIdDesc(chat.getId())
                             .orElseThrow();
-                    return chatMapper.toDto(chat, lastMessage, myUserId);
+                    long unreadCount = unreadCounts.getOrDefault(chat.getId(), 0L);
+                    return chatMapper.toDto(chat, lastMessage, myUserId, unreadCount);
                 })
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()

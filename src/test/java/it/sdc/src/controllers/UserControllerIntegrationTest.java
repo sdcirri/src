@@ -14,7 +14,9 @@ import it.sdc.src.dto.requests.accountedits.UsernameChangeRequest;
 import it.sdc.src.service.ProPicNormalizer;
 import it.sdc.src.service.mapping.UserCryptoMapper;
 import it.sdc.src.service.mapping.UserMapper;
+import it.sdc.src.test.fixtures.UserFixtures;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -95,6 +97,10 @@ public class UserControllerIntegrationTest {
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
+    @BeforeEach
+    void setUp() {
+        UserFixtures.resetUserCounter();
+    }
 
     @AfterEach
     public void cleanupDb() {
@@ -105,11 +111,11 @@ public class UserControllerIntegrationTest {
 
     @Test
     void searchUsers_matchesUsernames() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         for (int i = 2; i <= 6; i++)
-            userRepository.save(mockUser(passwordEncoder, i));
+            userRepository.save(mockUser(passwordEncoder));
 
         String goodPrefix = "user", badPrefix = "test";     // all mock users start with "user"
 
@@ -141,8 +147,8 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"user", "User", "USER", "UsER"})
     void searchUsers_shouldBeCaseInsensitive(String query) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
-        userRepository.save(mockUser(passwordEncoder, 2));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
+        userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         MvcResult result = mockMvc.perform(
@@ -160,12 +166,12 @@ public class UserControllerIntegrationTest {
 
     @Test
     void searchUsers_pagesResults() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
         Set<UserDto> expected = new HashSet<>();
 
         for (int i = 2; i <= 21; i++) {
-            UserDB user = userRepository.save(mockUser(passwordEncoder, i));
+            UserDB user = userRepository.save(mockUser(passwordEncoder));
             expected.add(userMapper.toDto(user));
         }
 
@@ -193,7 +199,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void searchUsers_shouldRejectNullQuery() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -205,7 +211,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 256, 1024, 2048})
     void searchUsers_querySizeShouldBeBounded(int querySize) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -217,7 +223,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {3, 255})
     void searchUsers_querySizeBoundaryIsInclusive(int querySize) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -235,8 +241,8 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldReturnValidInfo() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
-        UserDB otherUser = userRepository.save(mockUser(passwordEncoder, 2));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
+        UserDB otherUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         UserDto expected = userMapper.toDto(otherUser);
@@ -252,7 +258,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldReturnOwnInfo() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         UserDto expected = userMapper.toDto(myUser);
@@ -268,7 +274,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserInfo_shouldErrorOnNonexistingUserId() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
         UUID badUserId;
         do {
@@ -291,7 +297,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings = {"aaaa", "123", "null"})
     void getUserInfo_shouldOnlyAcceptValidUUIDs(String badId) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -302,7 +308,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setDisplayName_shouldChangeOwnDisplayName() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         DisplayNameChangeRequest request = new DisplayNameChangeRequest("Cool display name");
@@ -328,7 +334,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 256, 1024})
     void setDisplayName_shouldRejectDisplayNameWithBadLength(int length) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         DisplayNameChangeRequest request = new DisplayNameChangeRequest("A".repeat(length));
@@ -345,7 +351,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = { 1, 255 })
     void setDisplayName_displayNameBoundaryIsInclusive(int length) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         String displayName = "A".repeat(length);
@@ -373,7 +379,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setUsername_shouldChangeOwnUsername() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         UsernameChangeRequest request = new UsernameChangeRequest("cool_username_2");
@@ -399,7 +405,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2, 256, 1024})
     void setUsername_shouldRejectUsernameWithBadLength(int length) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         UsernameChangeRequest request = new UsernameChangeRequest("A".repeat(length));
@@ -416,7 +422,7 @@ public class UserControllerIntegrationTest {
     @ParameterizedTest
     @ValueSource(ints = { 3, 255 })
     void setUsername_usernameBoundaryIsInclusive(int length) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         String username = "A".repeat(length);
@@ -440,7 +446,7 @@ public class UserControllerIntegrationTest {
             "no$pec1@lCh@rs@ll0w3d!!!1!"
     })
     void setUsername_shouldRejectBadUsernames(String username) throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -461,7 +467,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldSetUserProPic() throws Exception {
-        UserDB myUser = mockUser(passwordEncoder, 1);
+        UserDB myUser = mockUser(passwordEncoder);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -491,7 +497,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldRejectEmptyMultipart() throws Exception {
-        UserDB myUser = mockUser(passwordEncoder, 1);
+        UserDB myUser = mockUser(passwordEncoder);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -505,7 +511,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void setProPic_shouldRejectBadImage() throws Exception {
-        UserDB myUser = mockUser(passwordEncoder, 1);
+        UserDB myUser = mockUser(passwordEncoder);
         myUser.setProPic(null);
         myUser = userRepository.save(myUser);
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
@@ -538,7 +544,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getCryptoSpecs_shouldReturnOwnCryptoSpecs() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
@@ -555,7 +561,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getCryptoSpecs_rejectsPartiallyRegisteredUserWith409() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
         mockMvc.perform(
@@ -573,10 +579,10 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldReturnUserPublicCryptoSpecs() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
-        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder));
         UserCryptoDB contactCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(contact));
 
         ContactCryptoDto expected = cryptoMapper.toPublicDto(contactCrypto);
@@ -592,10 +598,10 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldNotLeakPrivateCryptoSpecs() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 
-        UserDB contact = userRepository.save(mockUser(passwordEncoder, 2));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder));
         cryptoRepository.save(mockUserCryptoDBSpecs(contact));
 
         MvcResult result = mockMvc.perform(
@@ -613,7 +619,7 @@ public class UserControllerIntegrationTest {
 
     @Test
     void getUserCryptoSpecs_shouldHandleSelf() throws Exception {
-        UserDB myUser = userRepository.save(mockUser(passwordEncoder, 1));
+        UserDB myUser = userRepository.save(mockUser(passwordEncoder));
         UserCryptoDB myCrypto = cryptoRepository.save(mockUserCryptoDBSpecs(myUser));
         UserSessionDB mySession = sessionRepository.save(mockSession(myUser));
 

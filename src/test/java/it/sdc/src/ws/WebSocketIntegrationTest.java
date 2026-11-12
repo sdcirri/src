@@ -170,8 +170,8 @@ public class WebSocketIntegrationTest {
 
     @Test
     void sendMessage_generatesWSEvents() throws Exception {
-        UserDB sender = userRepository.save(mockUser(passwordEncoder, 1));
-        UserDB recipient = userRepository.save(mockUser(passwordEncoder, 2));
+        UserDB sender = userRepository.save(mockUser(passwordEncoder));
+        UserDB recipient = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB senderSession = userSessionRepository.save(mockSession(sender));
         UserSessionDB recipientSession = userSessionRepository.save(mockSession(recipient));
         String senderToken = encodedPlainAccessToken(senderSession);
@@ -200,9 +200,9 @@ public class WebSocketIntegrationTest {
 
     @Test
     void sendMessage_eventsAreIsolated() throws Exception {
-        UserDB sender = userRepository.save(mockUser(passwordEncoder, 1));
-        UserDB recipient = userRepository.save(mockUser(passwordEncoder, 2));
-        UserDB otherUser = userRepository.save(mockUser(passwordEncoder, 3));
+        UserDB sender = userRepository.save(mockUser(passwordEncoder));
+        UserDB recipient = userRepository.save(mockUser(passwordEncoder));
+        UserDB otherUser = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB otherUserSession = userSessionRepository.save(mockSession(otherUser));
         String otherUserToken = encodedPlainAccessToken(otherUserSession);
 
