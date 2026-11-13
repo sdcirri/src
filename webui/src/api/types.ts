@@ -23,6 +23,7 @@ export type ChatDto = {
     chatId: string;
     contactId: string;
     lastMessage: MessageDto | null;
+    unreadCount: number | null;
 };
 
 export type ContactCryptoDto = {

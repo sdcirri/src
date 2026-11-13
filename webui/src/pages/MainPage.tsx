@@ -21,7 +21,7 @@ import '@/css/main.css';
 
 function asFakeChats(users: UserDto[]): ChatDto[] {
     return users.map(u => {
-        return { chatId: '', contactId: u.id, lastMessage: null }
+        return { chatId: '', contactId: u.id, lastMessage: null, unreadCount: 0 }
     });
 }
 
@@ -35,10 +35,19 @@ function MainPage() {
     const [query, setQuery] = useState('');
 
     const chatsRef = useRef<ChatDto[]>([]);
+    const openChatRef = useRef<string | null>(null);
 
     async function onSignOut() {
         await signOut();
         navigate('/login', { replace: true });
+    }
+
+    function onSelectChat(chat: ChatDto) {
+        openChatRef.current = chat.contactId;
+        setCurrentChat(chat);
+        setChats(prev => prev.map(c =>
+            c.contactId === chat.contactId ? { ...c, unreadCount: 0 } : c
+        ));
     }
 
     useEffect(() => {
@@ -59,8 +68,17 @@ function MainPage() {
 
             if (existing) {
                 setChats(prev => {
+                    const chat = prev.find(c => c.chatId === message.chatId);
+                    if (!chat) return prev;
+                    const isOpen = chat.contactId === openChatRef.current;
+                    const unreadCount = isOpen ? 0 : (chat.unreadCount ?? 0) + (message.direction === 'INCOMING' ? 1 : 0);
+
                     return [
-                        {...existing, lastMessage: message},
+                        {
+                            ...chat,
+                            unreadCount,
+                            lastMessage: message,
+                        },
                         ...prev.filter(c => c.chatId !== message.chatId),
                     ];
                 });
@@ -129,7 +147,7 @@ function MainPage() {
                             onChange={(e) => setQuery(e.target.value)}
                         />
                     </div>
-                    <ChatList chats={q === '' ? chats : asFakeChats(results)} onSelect={setCurrentChat} />
+                    <ChatList chats={q === '' ? chats : asFakeChats(results)} onSelect={onSelectChat} />
                 </div>
                 <ChatBox key={currentChat?.contactId ?? 'no-chat'} chat={currentChat} />
             </div>

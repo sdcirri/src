@@ -21,6 +21,7 @@ function ChatCard({ chat, onSelect }: ChatCardProps) {
     const { session } = useSession();
     const [contact, setContact] = useState<UserDto | null>(null);
     const [messagePreview, setMessagePreview] = useState('');
+    const unread = chat.unreadCount ?? 0;
 
     useEffect(() => {
         let cancelled = false;
@@ -75,6 +76,11 @@ function ChatCard({ chat, onSelect }: ChatCardProps) {
             <div className='contact-info'>
                 <p className='card-user'>{contact.displayName ? `${contact.displayName} (@${contact.username})` : '@'+contact.username}</p>
                 <p className='card-preview'>{messagePreview}</p>
+            </div>
+            <div className='unread-container'>
+                <p className='unread-count' style={{
+                    visibility: chat.unreadCount ? 'visible' : 'hidden'
+                }}>{unread}</p>
             </div>
         </button>
     );
