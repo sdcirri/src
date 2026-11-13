@@ -4,6 +4,7 @@ import it.sdc.src.db.entities.MessageDB;
 import it.sdc.src.db.repositories.projections.UnreadMessagesCount;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.Instant;
@@ -29,6 +30,15 @@ public interface MessageDBRepository extends JpaRepository<MessageDB, UUID> {
            GROUP BY chat_id
     """, nativeQuery = true)
     List<UnreadMessagesCount> countUnreadByChatIds(Collection<UUID> chatIds, UUID userId);
+
+    @Query(value = """
+        UPDATE src_messages AS m SET read = true FROM src_messages AS boundary
+            WHERE boundary.id = :untilMessageId
+                AND boundary.chat_id = :chatId AND m.chat_id = :chatId AND m.sender_id != :userId
+                AND m.timestamp >= boundary.timestamp AND m.read = false
+    """, nativeQuery = true)
+    @Modifying
+    void readAllMessagesAfterId(UUID chatId, UUID userId, UUID untilMessageId);
 
     Optional<MessageDB> findByIdAndChatId(UUID id, UUID chatId);
 

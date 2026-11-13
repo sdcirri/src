@@ -32,3 +32,12 @@ export async function sendMessage(
         body: JSON.stringify(req),
     });
 }
+
+export async function readMessages(
+    contactId: string,
+    messageId: string,
+) {
+    return request<MessageDto>(`/chats/${contactId}/read?until=${messageId}`, {
+        method: 'POST',
+    });
+}

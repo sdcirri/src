@@ -170,16 +170,22 @@ public class ChatService {
                 .toList();
     }
 
-    public void readMessage(UUID myUserId, UUID contactUserId, UUID messageId) {
+    /**
+     * Reads all messages after a certain one
+     * @param myUserId current user ID
+     * @param contactUserId contact user ID
+     * @param until the first message to read
+     */
+    @Transactional
+    public void readMessages(UUID myUserId, UUID contactUserId, UUID until) {
         UUID user1Id = myUserId.toString().compareTo(contactUserId.toString()) < 0 ? myUserId : contactUserId;
         UUID user2Id = myUserId.toString().equals(user1Id.toString()) ? contactUserId : myUserId;
         ChatDB chat = chatRepository.findByUser1_IdAndUser2_Id(user1Id, user2Id).orElseThrow(
                 () -> new ChatNotFoundException("Chat not found")
         );
-        MessageDB message = messageRepository.findByIdAndChatId(messageId, chat.getId()).orElseThrow(
+        messageRepository.findByIdAndChatId(until, chat.getId()).orElseThrow(
                 () -> new MessageNotFoundException("Message not found")
         );
-        message.setRead(true);
-        messageRepository.save(message);
+        messageRepository.readAllMessagesAfterId(chat.getId(), myUserId, until);
     }
 }

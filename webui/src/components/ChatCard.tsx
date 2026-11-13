@@ -53,7 +53,7 @@ function ChatCard({ chat, onSelect }: ChatCardProps) {
             setMessagePreview(`${dirChar} ${prev}`);
         }
 
-        load();
+        void load();
         return () => { cancelled = true; };
     }, [chat.contactId, chat.lastMessage, session.keys]);
 

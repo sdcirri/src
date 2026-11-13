@@ -49,13 +49,13 @@ public class ChatController {
         return chatService.sendMessage(userPrincipal.getUserId(), contactId, request);
     }
 
-    @PostMapping("/{contactId}/messages/{messageId}/read")
+    @PostMapping("/{contactId}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void readMessage(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable UUID contactId,
-            @PathVariable UUID messageId
+            @RequestParam(value = "until", required = false) UUID until
     ) {
-        chatService.readMessage(userPrincipal.getUserId(), contactId, messageId);
+        chatService.readMessages(userPrincipal.getUserId(), contactId, until);
     }
 }

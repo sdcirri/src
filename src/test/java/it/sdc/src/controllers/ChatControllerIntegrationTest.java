@@ -463,7 +463,7 @@ public class ChatControllerIntegrationTest {
     }
 
     @Test
-    void readMessage_shouldReadMessage() throws Exception {
+    void readMessages_shouldReadMessages() throws Exception {
         UserDB user = userRepository.save(mockUser(passwordEncoder));
         UserDB contact = userRepository.save(mockUser(passwordEncoder));
         UserSessionDB session = sessionRepository.save(mockSession(user));
@@ -472,7 +472,16 @@ public class ChatControllerIntegrationTest {
         secureRandom.nextBytes(iv);
         secureRandom.nextBytes(data);
 
-        MessageDB message = messageRepository.save(
+        MessageDB message1ToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+        MessageDB message2ToRead = messageRepository.save(
                 MessageDB.builder()
                         .iv(iv)
                         .data(data)
@@ -483,14 +492,122 @@ public class ChatControllerIntegrationTest {
         );
 
         mockMvc.perform(
-                post("/chats/{contactId}/messages/{messageId}/read", contact.getId(), message.getId())
+                post("/chats/{contactId}/read?until={messageId}", contact.getId(), message1ToRead.getId())
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .cookie(mockAccessCookie(session))
         ).andExpect(status().isNoContent());
 
-        message = messageRepository.findById(message.getId()).get();
-        assertThat(message.isRead()).isTrue();
+        message1ToRead = messageRepository.findById(message1ToRead.getId()).get();
+        assertThat(message1ToRead.isRead()).isTrue();
+        message2ToRead = messageRepository.findById(message2ToRead.getId()).get();
+        assertThat(message2ToRead.isRead()).isTrue();
+    }
+
+    @Test
+    void readMessages_shouldRespectBoundary() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        ChatDB chat = chatRepository.save(mockChat(user, contact));
+        byte[] iv = new byte[16], data = new byte[128];
+        secureRandom.nextBytes(iv);
+        secureRandom.nextBytes(data);
+
+        MessageDB messageNotToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+        MessageDB message1ToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+        MessageDB message2ToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+
+        mockMvc.perform(
+                post("/chats/{contactId}/read?until={messageId}", contact.getId(), message1ToRead.getId())
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(mockAccessCookie(session))
+        ).andExpect(status().isNoContent());
+
+        messageNotToRead = messageRepository.findById(messageNotToRead.getId()).get();
+        assertThat(messageNotToRead.isRead()).isFalse();
+        message1ToRead = messageRepository.findById(message1ToRead.getId()).get();
+        assertThat(message1ToRead.isRead()).isTrue();
+        message2ToRead = messageRepository.findById(message2ToRead.getId()).get();
+        assertThat(message2ToRead.isRead()).isTrue();
+    }
+
+    @Test
+    void readMessages_shouldIgnoreSelfMessages() throws Exception {
+        UserDB user = userRepository.save(mockUser(passwordEncoder));
+        UserDB contact = userRepository.save(mockUser(passwordEncoder));
+        UserSessionDB session = sessionRepository.save(mockSession(user));
+        ChatDB chat = chatRepository.save(mockChat(user, contact));
+        byte[] iv = new byte[16], data = new byte[128];
+        secureRandom.nextBytes(iv);
+        secureRandom.nextBytes(data);
+
+        MessageDB message1ToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+        MessageDB messageNotToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(user)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+        MessageDB message2ToRead = messageRepository.save(
+                MessageDB.builder()
+                        .iv(iv)
+                        .data(data)
+                        .sender(contact)
+                        .timestamp(Instant.now().truncatedTo(ChronoUnit.MILLIS))
+                        .chat(chat)
+                        .build()
+        );
+
+        mockMvc.perform(
+                post("/chats/{contactId}/read?until={messageId}", contact.getId(), message1ToRead.getId())
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .cookie(mockAccessCookie(session))
+        ).andExpect(status().isNoContent());
+
+        messageNotToRead = messageRepository.findById(messageNotToRead.getId()).get();
+        assertThat(messageNotToRead.isRead()).isFalse();
+        message1ToRead = messageRepository.findById(message1ToRead.getId()).get();
+        assertThat(message1ToRead.isRead()).isTrue();
+        message2ToRead = messageRepository.findById(message2ToRead.getId()).get();
+        assertThat(message2ToRead.isRead()).isTrue();
     }
 
     @Test

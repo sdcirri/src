@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { ChatDto, ContactCryptoDto, MessageDto, UserDto } from '@/api/types.ts';
 import { getContactCryptoSpecs, getUserInfo } from '@/api/users.ts';
-import { getChat, sendMessage } from '@/api/chat.ts';
+import {getChat, readMessages, sendMessage} from '@/api/chat.ts';
 
 import { fromBase64 } from '@/crypto/common.ts';
 
@@ -67,8 +67,10 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
         return wsSubscribe((message: MessageDto) => {
             if (message.chatId !== chat?.chatId) return;
             setMessages(prev => mergeMessage(prev, message));
+            if (message.direction === 'INCOMING' && contact?.id)
+                void readMessages(contact?.id, message.id);
         });
-    }, [chat?.chatId, wsSubscribe]);
+    }, [chat?.chatId, contact?.id, wsSubscribe]);
 
     useEffect(() => {
         let cancelled = false;
@@ -84,6 +86,8 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
                 let history: MessageDto[];
                 try {
                     history = await getChat(user.id, cursor ?? undefined);
+                    if (history.length && chat?.chatId)
+                        await readMessages(contactId, history.at(-1)!.id);
                     setHasMore(history.length === 30);
                 } catch {
                     history = [];
@@ -99,9 +103,9 @@ function ChatBox({ chat }: { chat: ChatDto | null }) {
             }
         }
 
-        load();
+        void load();
         return () => { cancelled = true; };
-    }, [contactId, cursor]);
+    }, [chat?.chatId, contactId, cursor]);
 
     return (
         <div id='chat-container'>

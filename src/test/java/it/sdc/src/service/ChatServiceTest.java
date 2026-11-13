@@ -393,7 +393,7 @@ class ChatServiceTest {
     }
 
     @Test
-    void readMessage_shouldFlagMessageAsRead() {
+    void readMessages_shouldFlagMessagesAsRead() {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -408,14 +408,14 @@ class ChatServiceTest {
         when(messageRepository.findByIdAndChatId(messageId, chatId))
                 .thenReturn(Optional.of(messageToRead));
 
-        chatService.readMessage(myUserId, contactId, messageId);
+        chatService.readMessages(myUserId, contactId, messageId);
 
         verify(messageRepository).findByIdAndChatId(messageId, chatId);
-        verify(messageToRead).setRead(true);
+        verify(messageRepository).readAllMessagesAfterId(chatId, myUserId, messageId);
     }
 
     @Test
-    void readMessage_shouldThrowChatNotFoundException_whenChatDoesNotExist() {
+    void readMessages_shouldThrowChatNotFoundException_whenChatDoesNotExist() {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
@@ -423,12 +423,12 @@ class ChatServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(
-                () -> chatService.readMessage(myUserId, contactId, UUID.randomUUID())
+                () -> chatService.readMessages(myUserId, contactId, UUID.randomUUID())
         ).isInstanceOf(ChatNotFoundException.class);
     }
 
     @Test
-    void readMessage_shouldThrowMessageNotFoundException_whenMessageDoesNotExist() {
+    void readMessages_shouldThrowMessageNotFoundException_whenMessageDoesNotExist() {
         UUID myUserId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         UUID contactId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID chatId = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -441,7 +441,7 @@ class ChatServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(
-                () -> chatService.readMessage(myUserId, contactId, messageId)
+                () -> chatService.readMessages(myUserId, contactId, messageId)
         ).isInstanceOf(MessageNotFoundException.class);
     }
 }
