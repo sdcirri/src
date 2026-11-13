@@ -15,12 +15,14 @@ const CHAT_1: ChatDto = {
     chatId: 'chat-1',
     contactId: 'contact-1',
     lastMessage: null,
+    unreadCount: 0,
 };
 
 const CHAT_2: ChatDto = {
     chatId: 'chat-2',
     contactId: 'contact-2',
     lastMessage: null,
+    unreadCount: 0,
 };
 
 describe('ChatList', () => {
@@ -54,6 +56,7 @@ describe('ChatList', () => {
             chatId: '',
             contactId: 'contact-1',
             lastMessage: null,
+            unreadCount: 0,
         };
 
         render(<ChatList chats={[fakeChat]} onSelect={vi.fn()} />);

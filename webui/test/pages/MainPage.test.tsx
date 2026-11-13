@@ -58,12 +58,14 @@ const CHAT_1: ChatDto = {
     chatId: 'chat-1',
     contactId: 'contact-1',
     lastMessage: null,
+    unreadCount: 0,
 };
 
 const CHAT_2: ChatDto = {
     chatId: 'chat-2',
     contactId: 'contact-2',
     lastMessage: null,
+    unreadCount: 0,
 };
 
 const USER: UserDto = {
@@ -86,6 +88,15 @@ function message(chatId: string, id = 'message-1'): MessageDto {
 }
 
 let wsHandler: ((message: MessageDto) => void) | null;
+
+// chatsRef is synced in a passive effect that may still be pending after the
+// async chat load: re-committing flushes it, so the websocket handler sees the chats.
+async function renderWithLoadedChats() {
+    const view = render(<MainPage />);
+    await screen.findByRole('button', { name: 'chat-1' });
+    view.rerender(<MainPage />);
+    return view;
+}
 
 describe('MainPage', () => {
     beforeEach(() => {
@@ -143,8 +154,7 @@ describe('MainPage', () => {
     });
 
     it('moves an existing chat to the top when a websocket message arrives', async () => {
-        render(<MainPage />);
-        await screen.findByRole('button', { name: 'chat-1' });
+        await renderWithLoadedChats();
 
         const incoming = message('chat-2');
 
@@ -163,6 +173,7 @@ describe('MainPage', () => {
             chatId: 'chat-3',
             contactId: 'contact-3',
             lastMessage: message('chat-3'),
+            unreadCount: 0,
         };
 
         getChats
@@ -341,5 +352,145 @@ describe('MainPage', () => {
         });
 
         expect(chatList.mock.calls.at(-1)![0].chats).toEqual([]);
+    });
+
+    describe('unread messages', () => {
+        function lastChats(): ChatDto[] {
+            return (chatList.mock.calls.at(-1)![0] as { chats: ChatDto[] }).chats;
+        }
+
+        function unreadOf(chatId: string): number | null | undefined {
+            return lastChats().find(chat => chat.chatId === chatId)?.unreadCount;
+        }
+
+        it('increments the unread count of a background chat on incoming messages', async () => {
+            getChats.mockResolvedValueOnce([CHAT_1, { ...CHAT_2, unreadCount: 2 }]);
+
+            await renderWithLoadedChats();
+
+            act(() => {
+                wsHandler!(message('chat-2', 'message-1'));
+            });
+
+            expect(unreadOf('chat-2')).toBe(3);
+
+            act(() => {
+                wsHandler!(message('chat-2', 'message-2'));
+            });
+
+            expect(unreadOf('chat-2')).toBe(4);
+            expect(unreadOf('chat-1')).toBe(0);
+            expect(lastChats()[0].lastMessage?.id).toBe('message-2');
+        });
+
+        it('treats a missing unread count as zero when incrementing', async () => {
+            getChats.mockResolvedValueOnce([{ ...CHAT_1, unreadCount: null }]);
+
+            await renderWithLoadedChats();
+
+            act(() => {
+                wsHandler!(message('chat-1'));
+            });
+
+            expect(unreadOf('chat-1')).toBe(1);
+        });
+
+        it('does not count outgoing messages as unread', async () => {
+            getChats.mockResolvedValueOnce([CHAT_1, { ...CHAT_2, unreadCount: 2 }]);
+
+            await renderWithLoadedChats();
+
+            const outgoing: MessageDto = { ...message('chat-2'), direction: 'OUTGOING' };
+
+            act(() => {
+                wsHandler!(outgoing);
+            });
+
+            expect(lastChats().map(chat => chat.chatId)).toEqual(['chat-2', 'chat-1']);
+            expect(lastChats()[0].lastMessage).toEqual(outgoing);
+            expect(unreadOf('chat-2')).toBe(2);
+        });
+
+        it('treats a missing unread count as zero for outgoing messages', async () => {
+            getChats.mockResolvedValueOnce([{ ...CHAT_1, unreadCount: null }]);
+
+            await renderWithLoadedChats();
+
+            act(() => {
+                wsHandler!({ ...message('chat-1'), direction: 'OUTGOING' });
+            });
+
+            expect(unreadOf('chat-1')).toBe(0);
+        });
+
+        it('resets the unread count of the selected chat only', async () => {
+            getChats.mockResolvedValueOnce([
+                { ...CHAT_1, unreadCount: 3 },
+                { ...CHAT_2, unreadCount: 5 },
+            ]);
+
+            render(<MainPage />);
+            fireEvent.click(await screen.findByRole('button', { name: 'chat-1' }));
+
+            expect(unreadOf('chat-1')).toBe(0);
+            expect(unreadOf('chat-2')).toBe(5);
+            expect(screen.getByLabelText('Chat box')).toHaveTextContent(CHAT_1.contactId);
+        });
+
+        it('keeps the open chat at zero unread messages', async () => {
+            getChats.mockResolvedValueOnce([
+                { ...CHAT_1, unreadCount: 1 },
+                { ...CHAT_2, unreadCount: 4 },
+            ]);
+
+            render(<MainPage />);
+            fireEvent.click(await screen.findByRole('button', { name: 'chat-2' }));
+
+            act(() => {
+                wsHandler!(message('chat-2', 'message-1'));
+                wsHandler!(message('chat-1', 'message-2'));
+            });
+
+            expect(unreadOf('chat-2')).toBe(0);
+            expect(unreadOf('chat-1')).toBe(2);
+        });
+
+        it('counts messages again for a chat that is no longer open', async () => {
+            render(<MainPage />);
+
+            fireEvent.click(await screen.findByRole('button', { name: 'chat-1' }));
+            fireEvent.click(screen.getByRole('button', { name: 'chat-2' }));
+
+            act(() => {
+                wsHandler!(message('chat-1'));
+            });
+
+            expect(unreadOf('chat-1')).toBe(1);
+            expect(unreadOf('chat-2')).toBe(0);
+        });
+
+        it('renders search results as chats without unread messages', async () => {
+            vi.useFakeTimers();
+            searchUsers.mockResolvedValueOnce([USER]);
+
+            render(<MainPage />);
+            await act(async () => { await Promise.resolve(); });
+
+            fireEvent.change(screen.getByPlaceholderText('Search for users...'), {
+                target: { value: 'alice' },
+            });
+
+            await act(async () => {
+                vi.advanceTimersByTime(300);
+                await Promise.resolve();
+            });
+
+            expect(lastChats()).toEqual([{
+                chatId: '',
+                contactId: USER.id,
+                lastMessage: null,
+                unreadCount: 0,
+            }]);
+        });
     });
 });

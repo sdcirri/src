@@ -18,6 +18,7 @@ const {
     getContactCryptoSpecs,
     getChat,
     sendMessage,
+    readMessages,
     fromBase64,
     useSession,
     wsSubscribe,
@@ -28,6 +29,7 @@ const {
     getContactCryptoSpecs: vi.fn(),
     getChat: vi.fn(),
     sendMessage: vi.fn(),
+    readMessages: vi.fn(),
     fromBase64: vi.fn(),
     useSession: vi.fn(),
     wsSubscribe: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('@/api/users.ts', () => ({
 vi.mock('@/api/chat.ts', () => ({
     getChat,
     sendMessage,
+    readMessages,
 }));
 
 vi.mock('@/crypto/common.ts', () => ({
@@ -99,6 +102,7 @@ const CHAT: ChatDto = {
     chatId: 'chat-id',
     contactId: CONTACT.id,
     lastMessage: null,
+    unreadCount: 0,
 };
 
 function message(id: string, timestamp: number, chatId = CHAT.chatId): MessageDto {
@@ -125,6 +129,7 @@ describe('ChatBox', () => {
         getContactCryptoSpecs.mockReset();
         getChat.mockReset();
         sendMessage.mockReset();
+        readMessages.mockReset();
         fromBase64.mockReset();
         useSession.mockReset();
         wsSubscribe.mockReset();
@@ -136,6 +141,7 @@ describe('ChatBox', () => {
         getUserInfo.mockResolvedValue(CONTACT);
         getContactCryptoSpecs.mockResolvedValue(CONTACT_CRYPTO);
         getChat.mockResolvedValue([]);
+        readMessages.mockResolvedValue(undefined);
         fromBase64.mockReturnValue(THEIR_PUBLIC_KEY);
 
         wsSubscribe.mockImplementation((handler: (message: MessageDto) => void) => {
@@ -382,22 +388,35 @@ describe('ChatBox', () => {
         const { rerender } = render(<ChatBox chat={CHAT} />);
 
         await screen.findByText('Alice');
-        expect(wsSubscribe).toHaveBeenCalledOnce();
+        rerender(<ChatBox chat={CHAT} />);
+        // subscribed on mount, then again once the contact is known
+        expect(wsSubscribe).toHaveBeenCalledTimes(2);
+        expect(unsubscribe).toHaveBeenCalledOnce();
 
-        rerender(
-            <ChatBox
-                chat={{
-                    chatId: 'other-chat',
-                    contactId: otherContact.id,
-                    lastMessage: null,
-                }}
-            />
-        );
+        const otherChat: ChatDto = {
+            chatId: 'other-chat',
+            contactId: otherContact.id,
+            lastMessage: null,
+            unreadCount: 0,
+        };
+
+        rerender(<ChatBox chat={otherChat} />);
 
         await screen.findByText('Bob');
+        rerender(<ChatBox chat={otherChat} />);
 
-        expect(unsubscribe).toHaveBeenCalledOnce();
-        expect(wsSubscribe).toHaveBeenCalledTimes(2);
+        // chat change and contact change both resubscribe
+        expect(wsSubscribe).toHaveBeenCalledTimes(4);
+        expect(unsubscribe).toHaveBeenCalledTimes(3);
+
+        act(() => {
+            wsHandler!(message('alice-message', 5));
+            wsHandler!(message('bob-message', 6, 'other-chat'));
+        });
+
+        expect(screen.getByTestId('message-ids')).toHaveTextContent('bob-message');
+        expect(screen.getByTestId('message-ids')).not.toHaveTextContent('alice-message');
+        expect(readMessages).toHaveBeenCalledExactlyOnceWith(otherContact.id, 'bob-message');
     });
 
     it('does not apply a completed load after unmount', async () => {
@@ -469,6 +488,129 @@ describe('ChatBox', () => {
 
         await act(async () => {
             resolveOlder([]);
+        });
+    });
+
+    describe('read status', () => {
+        // The websocket subscription is renewed in a passive effect once the contact
+        // is loaded, which may still be pending: re-committing flushes it.
+        async function renderWithLoadedContact() {
+            const view = render(<ChatBox chat={CHAT} />);
+            await screen.findByText('Alice');
+            view.rerender(<ChatBox chat={CHAT} />);
+            return view;
+        }
+
+        it('marks the loaded history as read starting from the oldest message of the page', async () => {
+            getChat.mockResolvedValueOnce([MESSAGE_2, MESSAGE_1]);
+
+            render(<ChatBox chat={CHAT} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('message-ids')).toHaveTextContent('message-1,message-2');
+            });
+
+            expect(readMessages).toHaveBeenCalledExactlyOnceWith(CONTACT.id, MESSAGE_1.id);
+        });
+
+        it('does not mark anything as read when the history is empty', async () => {
+            render(<ChatBox chat={CHAT} />);
+
+            await screen.findByLabelText('Message history');
+
+            expect(readMessages).not.toHaveBeenCalled();
+        });
+
+        it('does not mark history as read for a chat that does not exist yet', async () => {
+            getChat.mockResolvedValueOnce([MESSAGE_1]);
+
+            render(<ChatBox chat={{ ...CHAT, chatId: '' }} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('message-ids')).toHaveTextContent('message-1');
+            });
+
+            expect(readMessages).not.toHaveBeenCalled();
+        });
+
+        it('reloads and marks history as read once a new chat gets persisted', async () => {
+            getChat
+                .mockResolvedValueOnce([MESSAGE_1])
+                .mockResolvedValueOnce([MESSAGE_2, MESSAGE_1]);
+
+            const { rerender } = render(<ChatBox chat={{ ...CHAT, chatId: '' }} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('message-ids')).toHaveTextContent('message-1');
+            });
+            expect(readMessages).not.toHaveBeenCalled();
+
+            rerender(<ChatBox chat={CHAT} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId('message-ids')).toHaveTextContent('message-1,message-2');
+            });
+
+            expect(getChat).toHaveBeenCalledTimes(2);
+            expect(getChat).toHaveBeenLastCalledWith(CONTACT.id, undefined);
+            expect(readMessages).toHaveBeenCalledExactlyOnceWith(CONTACT.id, MESSAGE_1.id);
+        });
+
+        it('marks incoming websocket messages of the open chat as read', async () => {
+            await renderWithLoadedContact();
+
+            act(() => {
+                wsHandler!(MESSAGE_1);
+            });
+
+            expect(readMessages).toHaveBeenCalledExactlyOnceWith(CONTACT.id, MESSAGE_1.id);
+        });
+
+        it('does not mark outgoing websocket messages as read', async () => {
+            await renderWithLoadedContact();
+
+            act(() => {
+                wsHandler!({ ...MESSAGE_1, direction: 'OUTGOING' });
+            });
+
+            expect(screen.getByTestId('message-ids')).toHaveTextContent('message-1');
+            expect(readMessages).not.toHaveBeenCalled();
+        });
+
+        it('does not mark websocket messages of other chats as read', async () => {
+            await renderWithLoadedContact();
+
+            act(() => {
+                wsHandler!(message('other-message', 1, 'other-chat'));
+            });
+
+            expect(readMessages).not.toHaveBeenCalled();
+        });
+
+        it('does not mark websocket messages as read before the contact is loaded', async () => {
+            let resolveUser!: (user: UserDto) => void;
+            getUserInfo.mockReturnValueOnce(new Promise(resolve => {
+                resolveUser = resolve;
+            }));
+
+            render(<ChatBox chat={CHAT} />);
+
+            await waitFor(() => {
+                expect(wsHandler).not.toBeNull();
+            });
+
+            act(() => {
+                wsHandler!(MESSAGE_1);
+            });
+
+            expect(readMessages).not.toHaveBeenCalled();
+
+            await act(async () => {
+                resolveUser(CONTACT);
+            });
+
+            expect(await screen.findByTestId('message-ids')).toHaveTextContent('message-1');
+            expect(readMessages).not.toHaveBeenCalled();
         });
     });
 });

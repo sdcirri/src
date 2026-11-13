@@ -12,7 +12,7 @@ const { request } = vi.hoisted(() => ({
 
 vi.mock('@/api/client.ts', () => ({ request }));
 
-import {getChat, getChats, sendMessage} from '@/api/chat';
+import {getChat, getChats, readMessages, sendMessage} from '@/api/chat';
 
 function ownSpecs(privateX25519: Uint8Array, publicX25519: Uint8Array): DecryptedCryptoSpecs {
     return {
@@ -70,6 +70,7 @@ describe('getChats', () => {
                 iv: 'wire-iv',
                 direction: 'INCOMING',
             },
+            unreadCount: 2,
         }];
         request.mockResolvedValue(chats);
 
@@ -127,5 +128,32 @@ describe('sendMessage', () => {
             alice.publicKey,
         );
         expect(decrypted).toBe('hello from alice');
+    });
+});
+
+describe('readMessages', () => {
+    beforeEach(() => {
+        request.mockReset();
+    });
+
+    it('posts the read boundary for the contact chat', async () => {
+        request.mockResolvedValue(undefined);
+
+        await expect(readMessages(
+            '6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412',
+            '3785eb96-d74b-4dd0-8307-f126fc59a20f',
+        )).resolves.toBeUndefined();
+
+        expect(request).toHaveBeenCalledExactlyOnceWith(
+            '/chats/6f1b2c9e-3a74-4d8f-9c21-5e7a63b0f412/read?until=3785eb96-d74b-4dd0-8307-f126fc59a20f',
+            { method: 'POST' },
+        );
+    });
+
+    it('propagates request errors', async () => {
+        const error = new Error('not found');
+        request.mockRejectedValue(error);
+
+        await expect(readMessages('contact-id', 'message-id')).rejects.toBe(error);
     });
 });

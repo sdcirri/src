@@ -51,6 +51,7 @@ const CHAT: ChatDto = {
         iv: 'BAUG',
         direction: 'INCOMING',
     },
+    unreadCount: 0,
 };
 
 describe('ChatCard', () => {
@@ -241,5 +242,56 @@ describe('ChatCard', () => {
         unmount();
         resolveDecrypt('hello');
         await Promise.resolve();
+    });
+
+    describe('unread badge', () => {
+        it('shows the unread count when there are unread messages', async () => {
+            const { container } = render(
+                <ChatCard chat={{ ...CHAT, unreadCount: 3 }} onSelect={vi.fn()} />
+            );
+
+            await screen.findByText('Alice (@alice)');
+
+            const badge = container.querySelector('.unread-count');
+            expect(badge).toHaveTextContent('3');
+            expect(badge).toHaveStyle({ visibility: 'visible' });
+        });
+
+        it('hides the badge when there are no unread messages', async () => {
+            const { container } = render(
+                <ChatCard chat={{ ...CHAT, unreadCount: 0 }} onSelect={vi.fn()} />
+            );
+
+            await screen.findByText('Alice (@alice)');
+
+            const badge = container.querySelector('.unread-count');
+            expect(badge).toHaveTextContent('0');
+            expect(badge).toHaveStyle({ visibility: 'hidden' });
+        });
+
+        it('treats a missing unread count as zero and hides the badge', async () => {
+            const { container } = render(
+                <ChatCard chat={{ ...CHAT, unreadCount: null }} onSelect={vi.fn()} />
+            );
+
+            await screen.findByText('Alice (@alice)');
+
+            const badge = container.querySelector('.unread-count');
+            expect(badge).toHaveTextContent('0');
+            expect(badge).toHaveStyle({ visibility: 'hidden' });
+        });
+
+        it('updates the badge when the unread count changes', async () => {
+            const { container, rerender } = render(
+                <ChatCard chat={{ ...CHAT, unreadCount: 1 }} onSelect={vi.fn()} />
+            );
+
+            await screen.findByText('Alice (@alice)');
+            expect(container.querySelector('.unread-count')).toHaveTextContent('1');
+
+            rerender(<ChatCard chat={{ ...CHAT, unreadCount: 0 }} onSelect={vi.fn()} />);
+
+            expect(container.querySelector('.unread-count')).toHaveStyle({ visibility: 'hidden' });
+        });
     });
 });
