@@ -8,7 +8,6 @@ import it.sdc.src.dto.MessageDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,7 +39,6 @@ public class ChatMapperTest {
 
         MessageDB lastMessageDB = mock(MessageDB.class);
         MessageDto lastMessage = mock(MessageDto.class);
-        when(chatDB.getMessages()).thenReturn(List.of(lastMessageDB));
         when(messageMapper.toDto(eq(lastMessageDB), any(UUID.class))).thenReturn(lastMessage);
 
         ChatDto result = chatMapper.toDto(chatDB, lastMessageDB, user1Id);

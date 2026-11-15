@@ -32,6 +32,12 @@ public interface MessageDBRepository extends JpaRepository<MessageDB, UUID> {
     List<UnreadMessagesCount> countUnreadByChatIds(Collection<UUID> chatIds, UUID userId);
 
     @Query(value = """
+        SELECT DISTINCT ON (m.chat_id) m.* FROM src_messages m WHERE m.chat_id IN (:chatIds)
+            ORDER BY m.chat_id, m.timestamp DESC, m.id DESC
+    """, nativeQuery = true)
+    List<MessageDB> findLastByChatIds(Collection<UUID> chatIds);
+
+    @Query(value = """
         UPDATE src_messages AS m SET read = true FROM src_messages AS boundary
             WHERE boundary.id = :untilMessageId
                 AND boundary.chat_id = :chatId AND m.chat_id = :chatId AND m.sender_id != :userId
@@ -41,6 +47,4 @@ public interface MessageDBRepository extends JpaRepository<MessageDB, UUID> {
     void readAllMessagesAfterId(UUID chatId, UUID userId, UUID untilMessageId);
 
     Optional<MessageDB> findByIdAndChatId(UUID id, UUID chatId);
-
-    Optional<MessageDB> findFirstByChatIdOrderByTimestampDescIdDesc(UUID chatId);
 }

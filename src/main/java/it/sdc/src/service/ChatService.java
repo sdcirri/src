@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,20 +52,26 @@ public class ChatService {
     public List<ChatDto> getChats(UUID myUserId) {
         List<ChatDB> chats = chatRepository.findByUserId(myUserId);
         List<UUID> chatIds = chats.stream().map(ChatDB::getId).toList();
-        Map<UUID, Long> unreadCounts = messageRepository
+        Map<UUID, Long> unreadById = messageRepository
                 .countUnreadByChatIds(chatIds, myUserId)
                 .stream()
                 .collect(Collectors.toMap(
                         UnreadMessagesCount::getChatId,
                         UnreadMessagesCount::getUnreadCount
                 ));
+        Map<UUID, MessageDB> lastById = messageRepository
+                .findLastByChatIds(chatIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        m -> m.getChat().getId(),
+                        Function.identity()
+                ));
+
         return chats.stream()
                 .map(chat -> {
-                    MessageDB lastMessage = messageRepository
-                            .findFirstByChatIdOrderByTimestampDescIdDesc(chat.getId())
-                            .orElseThrow();
-                    long unreadCount = unreadCounts.getOrDefault(chat.getId(), 0L);
-                    return chatMapper.toDto(chat, lastMessage, myUserId, unreadCount);
+                    long unread = unreadById.getOrDefault(chat.getId(), 0L);
+                    MessageDB last = Objects.requireNonNull(lastById.get(chat.getId()));
+                    return chatMapper.toDto(chat, last, myUserId, unread);
                 })
                 .sorted(Comparator.comparing(
                         (ChatDto chat) -> chat.lastMessage().timestamp()).reversed()

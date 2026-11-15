@@ -94,7 +94,7 @@ public class ChatControllerIntegrationTest {
     @Autowired
     MessageMapper messageMapper;
 
-    private List<MessageDB> mockMessageHistory(ChatDB chat, int len) {
+    private void mockMessageHistory(ChatDB chat, int len) {
         List<MessageDB> messages = new ArrayList<>();
         for (int i = 0; i < len; i++) {
             byte[] iv = new byte[16], data = new byte[128];
@@ -112,7 +112,6 @@ public class ChatControllerIntegrationTest {
             ));
         }
 
-        return messages;
     }
 
     private List<MessageDB> mockMessageHistoryWithDistinctTimestamps(ChatDB chat, int len) {
