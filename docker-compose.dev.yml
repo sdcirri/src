@@ -35,6 +35,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/src
       SPRING_DATASOURCE_USERNAME: src
       SPRING_DATASOURCE_PASSWORD: src
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       CORS_ALLOWED_ORIGIN: http://localhost:5173
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8081/actuator/health"]
