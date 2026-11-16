@@ -1,10 +1,9 @@
 package it.sdc.src.auth;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +11,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static it.sdc.src.utils.HashingUtils.sha512;
 
@@ -20,15 +23,13 @@ import static it.sdc.src.utils.HashingUtils.sha512;
 public class TokenIntrospectionCache {
     private final UserSessionDBRepository sessionRepository;
 
-    private final Cache<String, UserPrincipal> accessCache = Caffeine.newBuilder()
-            .maximumSize(10_000)
-            .expireAfterWrite(Duration.ofMinutes(5))
-            .build();
+    private final RedisTemplate<String, UserPrincipal> redis;
 
-    private final Cache<String, UserPrincipal> refreshCache = Caffeine.newBuilder()
-            .maximumSize(10_000)
-            .expireAfterWrite(Duration.ofMinutes(15))
-            .build();
+    private static final String ACCESS_PREFIX = "src:auth:access:";
+    private static final String REFRESH_PREFIX = "src:auth:refresh:";
+
+    private static final Duration ACCESS_TTL = Duration.ofMinutes(5);
+    private static final Duration REFRESH_TTL = Duration.ofMinutes(15);
 
     private static byte[] decodeToken(String token) {
         try {
@@ -49,32 +50,65 @@ public class TokenIntrospectionCache {
     }
 
     public UserPrincipal introspectAccessToken(String bearerToken) {
-        String tokenKey = cacheKeyFromBearer(bearerToken);
-        UserPrincipal principal = accessCache.get(tokenKey, _ -> loadAccess(bearerToken));
-        if (principal.isExpired()) {
-            accessCache.invalidate(tokenKey);
-            throw new BadOpaqueTokenException("Bad auth");
-        }
-        return principal;
+        String key = ACCESS_PREFIX + cacheKeyFromBearer(bearerToken);
+        return introspect(
+                key,
+                ACCESS_TTL,
+                () -> loadAccess(bearerToken),
+                UserPrincipal::isExpired
+        );
     }
 
     public UserPrincipal introspectRefreshToken(String bearerToken) {
-        String tokenKey = cacheKeyFromBearer(bearerToken);
-        UserPrincipal principal = refreshCache.get(tokenKey, _ -> loadRefresh(bearerToken));
-        if (principal.isRefreshExpired()) {
-            refreshCache.invalidate(tokenKey);
+        String key = REFRESH_PREFIX + cacheKeyFromBearer(bearerToken);
+        return introspect(
+                key,
+                REFRESH_TTL,
+                () -> loadRefresh(bearerToken),
+                UserPrincipal::isRefreshExpired
+        );
+    }
+
+    private UserPrincipal introspect(
+            String key,
+            Duration ttl,
+            Supplier<UserPrincipal> loader,
+            Predicate<UserPrincipal> isExpired
+    ) {
+        UserPrincipal principal = redis.opsForValue().get(key);
+        boolean cacheMiss = principal == null;
+
+        if (cacheMiss) principal = loader.get();
+
+        if (isExpired.test(principal)) {
+            redis.delete(key);
             throw new BadOpaqueTokenException("Bad auth");
         }
+
+        if (cacheMiss)
+            redis.opsForValue().set(key, principal, ttl);
+
         return principal;
     }
 
     public void evict(UserSessionDB session) {
-        accessCache.invalidate(encodeHash(session.getAccessToken()));
-        refreshCache.invalidate(encodeHash(session.getRefreshToken()));
+        redis.delete(List.of(
+                ACCESS_PREFIX + encodeHash(session.getAccessToken()),
+                REFRESH_PREFIX + encodeHash(session.getRefreshToken())
+        ));
     }
 
     public void evictAll(Collection<UserSessionDB> sessions) {
-        sessions.forEach(this::evict);
+        List<String> keys = sessions.stream()
+                .flatMap(session -> Stream.of(
+                        ACCESS_PREFIX + encodeHash(session.getAccessToken()),
+                        REFRESH_PREFIX + encodeHash(session.getRefreshToken())
+                ))
+                .toList();
+
+        if (!keys.isEmpty()) {
+            redis.delete(keys);
+        }
     }
 
     private UserPrincipal loadAccess(String bearerToken) {

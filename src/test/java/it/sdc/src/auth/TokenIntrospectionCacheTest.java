@@ -1,21 +1,22 @@
 package it.sdc.src.auth;
 
-import com.github.benmanes.caffeine.cache.Cache;
 import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.introspection.BadOpaqueTokenException;
 
-import java.lang.reflect.Field;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 import static it.sdc.src.test.fixtures.BearerAuthFixtures.*;
 import static it.sdc.src.test.fixtures.UserFixtures.mockUserWithId;
+import static it.sdc.src.utils.HashingUtils.sha512;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,30 +25,14 @@ import static org.mockito.Mockito.*;
 public class TokenIntrospectionCacheTest {
     private UserSessionDBRepository userSessionRepository;
     private PasswordEncoder passwordEncoder;
+    private RedisTemplate<String, UserPrincipal> redis;
+    private ValueOperations<String, UserPrincipal> values;
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
     private TokenIntrospectionCache cache;
 
-    private static byte[] sha512(byte[] data) {
-        try {
-            return MessageDigest.getInstance("SHA-512").digest(data);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException("SHA-512 hash algorithm is not available");
-        }
-    }
-
     @SuppressWarnings("unchecked")
-    private Cache<String, UserPrincipal> getCache(String fieldName) throws NoSuchFieldException, IllegalAccessException {
-        Field field = TokenIntrospectionCache.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return (Cache<String, UserPrincipal>) field.get(cache);
-    }
-
-    private void seedCache(String fieldName, String key, UserPrincipal principal) throws NoSuchFieldException, IllegalAccessException {
-        getCache(fieldName).put(key, principal);
-    }
-
     @BeforeEach
     void setUp() {
         userSessionRepository = mock(UserSessionDBRepository.class);
@@ -55,7 +40,21 @@ public class TokenIntrospectionCacheTest {
         passwordEncoder = mock(PasswordEncoder.class);
         when(passwordEncoder.encode(any())).thenReturn("hash");
 
-        cache = new TokenIntrospectionCache(userSessionRepository);
+        redis = mock(RedisTemplate.class);
+        values = mock(ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(values);
+
+        cache = new TokenIntrospectionCache(userSessionRepository, redis);
+    }
+
+    private static String accessKey(SessionFixture fixture) {
+        return "src:auth:access:"
+                + ENCODER.encodeToString(sha512(fixture.plainAccessToken()));
+    }
+
+    private static String refreshKey(SessionFixture fixture) {
+        return "src:auth:refresh:"
+                + ENCODER.encodeToString(sha512(fixture.plainRefreshToken()));
     }
 
     private static boolean principalRefersToUser(UserPrincipal principal, UserSessionDB userSession) {
@@ -77,16 +76,40 @@ public class TokenIntrospectionCacheTest {
     }
 
     @Test
-    void introspectAccessToken_shouldCacheTokens() {
+    void introspectAccessToken_shouldPopulateRedisOnMiss() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        byte[] accessTokenHash = sha512(fixture.plainAccessToken());
-        when(userSessionRepository.findByAccessToken(accessTokenHash)).thenReturn(Optional.of(fixture.session()));
-        String accessToken = ENCODER.encodeToString(fixture.plainAccessToken());
+        byte[] hash = sha512(fixture.plainAccessToken());
+        String key = accessKey(fixture);
 
-        cache.introspectAccessToken(accessToken);
-        verify(userSessionRepository, times(1)).findByAccessToken(accessTokenHash);
-        cache.introspectAccessToken(accessToken);
-        verify(userSessionRepository, times(1)).findByAccessToken(accessTokenHash);
+        when(values.get(key)).thenReturn(null);
+        when(userSessionRepository.findByAccessToken(hash))
+                .thenReturn(Optional.of(fixture.session()));
+
+        UserPrincipal result = cache.introspectAccessToken(
+                ENCODER.encodeToString(fixture.plainAccessToken())
+        );
+
+        assertThat(principalRefersToUser(result, fixture.session())).isTrue();
+        verify(userSessionRepository).findByAccessToken(hash);
+        verify(values).set(eq(key), same(result), eq(Duration.ofMinutes(5)));
+    }
+
+    @Test
+    void introspectAccessToken_shouldReturnCachedPrincipalWithoutQueryingDb() {
+        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
+        UserPrincipal principal = mockPrincipal(fixture.session());
+        String key = accessKey(fixture);
+
+        when(values.get(key)).thenReturn(principal);
+
+        UserPrincipal result = cache.introspectAccessToken(
+                ENCODER.encodeToString(fixture.plainAccessToken())
+        );
+
+        assertThat(result).isSameAs(principal);
+        verifyNoInteractions(userSessionRepository);
+        verify(values).get(key);
+        verifyNoMoreInteractions(values);
     }
 
     @Test
@@ -98,35 +121,37 @@ public class TokenIntrospectionCacheTest {
         assertThatThrownBy(
                 () -> cache.introspectAccessToken(ENCODER.encodeToString(random))
         ).isInstanceOf(BadOpaqueTokenException.class);
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
     }
 
     @Test
-    void introspectAccessToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException {
+    void introspectAccessToken_shouldRejectAndEvictExpiredCachedToken() {
         SessionFixture fixture = mockSessionFixtureWithExpiredAccessToken(mockUserWithId(passwordEncoder));
-        String token = ENCODER.encodeToString(fixture.plainAccessToken());
-        String cacheKey = ENCODER.encodeToString(
-                MessageDigest.getInstance("SHA-512")
-                        .digest(fixture.plainAccessToken())
-        );
 
-        seedCache("accessCache", cacheKey, mockPrincipal(fixture.session()));
+        String key = accessKey(fixture);
+        when(values.get(key)).thenReturn(mockPrincipal(fixture.session()));
 
-        assertThatThrownBy(() -> cache.introspectAccessToken(token))
-                .isInstanceOf(BadOpaqueTokenException.class);
+        assertThatThrownBy(() -> cache.introspectAccessToken(
+                ENCODER.encodeToString(fixture.plainAccessToken())
+        )).isInstanceOf(BadOpaqueTokenException.class);
+
+        verify(redis).delete(key);
         verifyNoInteractions(userSessionRepository);
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
     }
 
     @Test
-    void evict_shouldRemoveCachedAccessToken() {
+    void evict_shouldDeleteBothTokenKeys() {
         SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        String token = ENCODER.encodeToString(fixture.plainAccessToken());
-        when(userSessionRepository.findByAccessToken(any(byte[].class)))
-                .thenReturn(Optional.of(fixture.session()));
 
-        cache.introspectAccessToken(token);
         cache.evict(fixture.session());
-        cache.introspectAccessToken(token);
-        verify(userSessionRepository, times(2)).findByAccessToken(any(byte[].class));
+
+        verify(redis).delete(argThat((java.util.Collection<String> keys) ->
+                keys.size() == 2 &&
+                        keys.contains(accessKey(fixture)) &&
+                        keys.contains(refreshKey(fixture))
+        ));
+        verifyNoInteractions(values, userSessionRepository);
     }
 
     @Test
@@ -138,6 +163,7 @@ public class TokenIntrospectionCacheTest {
         assertThatThrownBy(
                 () -> cache.introspectAccessToken(ENCODER.encodeToString(fixture.plainAccessToken()))
         ).isInstanceOf(BadOpaqueTokenException.class);
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
     }
 
     @Test
@@ -145,6 +171,44 @@ public class TokenIntrospectionCacheTest {
         assertThatThrownBy(
                 () -> cache.introspectAccessToken("hello")
         ).isInstanceOf(BadOpaqueTokenException.class);
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
+    }
+
+    @Test
+    void introspectRefreshToken_shouldPopulateRedisOnMiss() {
+        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
+        byte[] hash = sha512(fixture.plainRefreshToken());
+        String key = refreshKey(fixture);
+
+        when(values.get(key)).thenReturn(null);
+        when(userSessionRepository.findByRefreshToken(hash))
+                .thenReturn(Optional.of(fixture.session()));
+
+        UserPrincipal result = cache.introspectRefreshToken(
+                ENCODER.encodeToString(fixture.plainRefreshToken())
+        );
+
+        assertThat(principalRefersToUser(result, fixture.session())).isTrue();
+        verify(userSessionRepository).findByRefreshToken(hash);
+        verify(values).set(eq(key), same(result), eq(Duration.ofMinutes(15)));
+    }
+
+    @Test
+    void introspectRefreshToken_shouldReturnCachedPrincipalWithoutQueryingDb() {
+        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
+        UserPrincipal principal = mockPrincipal(fixture.session());
+        String key = refreshKey(fixture);
+
+        when(values.get(key)).thenReturn(principal);
+
+        UserPrincipal result = cache.introspectRefreshToken(
+                ENCODER.encodeToString(fixture.plainRefreshToken())
+        );
+
+        assertThat(result).isSameAs(principal);
+        verifyNoInteractions(userSessionRepository);
+        verify(values).get(key);
+        verifyNoMoreInteractions(values);
     }
 
     @Test
@@ -158,19 +222,6 @@ public class TokenIntrospectionCacheTest {
     }
 
     @Test
-    void introspectRefreshToken_shouldCacheTokens() {
-        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        byte[] refreshTokenHash = sha512(fixture.plainRefreshToken());
-        when(userSessionRepository.findByRefreshToken(refreshTokenHash)).thenReturn(Optional.of(fixture.session()));
-        String refreshToken = ENCODER.encodeToString(fixture.plainRefreshToken());
-
-        cache.introspectRefreshToken(refreshToken);
-        verify(userSessionRepository, times(1)).findByRefreshToken(refreshTokenHash);
-        cache.introspectRefreshToken(refreshToken);
-        verify(userSessionRepository, times(1)).findByRefreshToken(refreshTokenHash);
-    }
-
-    @Test
     void introspectRefreshToken_shouldRejectBadTokens() {
         byte[] random = "random".getBytes();
         byte[] randomHash = sha512(random);
@@ -179,35 +230,23 @@ public class TokenIntrospectionCacheTest {
         assertThatThrownBy(
                 () -> cache.introspectRefreshToken(ENCODER.encodeToString(random))
         ).isInstanceOf(BadOpaqueTokenException.class);
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
     }
 
     @Test
-    void introspectRefreshToken_shouldRejectExpiredTokens() throws NoSuchFieldException, IllegalAccessException, NoSuchAlgorithmException {
+    void introspectRefreshToken_shouldRejectAndEvictExpiredCachedToken() {
         SessionFixture fixture = mockSessionFixtureWithExpiredRefreshToken(mockUserWithId(passwordEncoder));
-        String token = ENCODER.encodeToString(fixture.plainRefreshToken());
-        String cacheKey = ENCODER.encodeToString(
-                MessageDigest.getInstance("SHA-512")
-                        .digest(fixture.plainRefreshToken())
-        );
 
-        seedCache("refreshCache", cacheKey, mockPrincipal(fixture.session()));
+        String key = refreshKey(fixture);
+        when(values.get(key)).thenReturn(mockPrincipal(fixture.session()));
 
-        assertThatThrownBy(() -> cache.introspectRefreshToken(token))
-                .isInstanceOf(BadOpaqueTokenException.class);
+        assertThatThrownBy(() -> cache.introspectRefreshToken(
+                ENCODER.encodeToString(fixture.plainRefreshToken())
+        )).isInstanceOf(BadOpaqueTokenException.class);
+
+        verify(redis).delete(key);
         verifyNoInteractions(userSessionRepository);
-    }
-
-    @Test
-    void evict_shouldRemoveCachedRefreshToken() {
-        SessionFixture fixture = mockSessionFixture(mockUserWithId(passwordEncoder));
-        String token = ENCODER.encodeToString(fixture.plainRefreshToken());
-        when(userSessionRepository.findByRefreshToken(any(byte[].class)))
-                .thenReturn(Optional.of(fixture.session()));
-
-        cache.introspectRefreshToken(token);
-        cache.evict(fixture.session());
-        cache.introspectRefreshToken(token);
-        verify(userSessionRepository, times(2)).findByRefreshToken(any(byte[].class));
+        verify(values, never()).set(anyString(), any(UserPrincipal.class), any(Duration.class));
     }
 
     @Test
@@ -226,5 +265,29 @@ public class TokenIntrospectionCacheTest {
         assertThatThrownBy(
                 () -> cache.introspectRefreshToken("hello")
         ).isInstanceOf(BadOpaqueTokenException.class);
+    }
+
+    @Test
+    void evictAll_shouldDeleteBothKeysForEverySession() {
+        SessionFixture first = mockSessionFixture(mockUserWithId(passwordEncoder));
+        SessionFixture second = mockSessionFixture(mockUserWithId(passwordEncoder));
+
+        cache.evictAll(List.of(first.session(), second.session()));
+
+        verify(redis).delete(argThat((java.util.Collection<String> keys) ->
+                keys.size() == 4 && keys.containsAll(List.of(
+                        accessKey(first),
+                        refreshKey(first),
+                        accessKey(second),
+                        refreshKey(second)
+                ))
+        ));
+        verifyNoInteractions(values, userSessionRepository);
+    }
+
+    @Test
+    void evictAll_shouldDoNothingForEmptyCollection() {
+        cache.evictAll(List.of());
+        verifyNoInteractions(redis, values, userSessionRepository);
     }
 }
