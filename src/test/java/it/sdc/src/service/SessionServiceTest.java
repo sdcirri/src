@@ -208,7 +208,20 @@ public class SessionServiceTest {
     }
 
     @Test
-    void refreshAccessToken_rejectsExpiredRefreshToken() {
+    void yieldSession_shouldPersistCorrectUser() {
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(UUID.randomUUID());
+
+        sessionService.yieldSession(user);
+
+        ArgumentCaptor<UserSessionDB> captor = ArgumentCaptor.forClass(UserSessionDB.class);
+
+        verify(userSessionRepository).save(captor.capture());
+        assertThat(captor.getValue().getUser()).isSameAs(user);
+    }
+
+    @Test
+    void refreshAccessToken_rejectsExpiredRefreshTokenAndDoesNotMutateAnything() {
         UUID sessionId = UUID.randomUUID();
 
         UserSessionDB userSession = mock(UserSessionDB.class);
@@ -217,14 +230,134 @@ public class SessionServiceTest {
 
         assertThatThrownBy(() -> sessionService.refreshAccessToken(sessionId))
                 .isInstanceOf(LoginFailedException.class);
+
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+
+        verifyNoInteractions(tokenIntrospectionCache);
+        verifyNoInteractions(webSocketSessionRegistry);
+        verify(userSessionRepository, never()).save(any(UserSessionDB.class));
+        verify(userSessionRepository, never()).delete(any(UserSessionDB.class));
     }
 
     @Test
-    void refreshAccessToken_rejectsInvalidRefreshToken() {
+    void yieldSession_shouldUseConfiguredExpiration() {
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(UUID.randomUUID());
+
+        Instant before = Instant.now();
+        UserSessionDto result = sessionService.yieldSession(user);
+        Instant after = Instant.now();
+
+        AuthProperties authProperties = authProperties();
+
+        assertThat(result.accessTokenExpires())
+                .isBetween(
+                        before.plusSeconds(authProperties.getAccessTokenValiditySeconds()).toEpochMilli(),
+                        after.plusSeconds(authProperties.getAccessTokenValiditySeconds()).toEpochMilli()
+                );
+
+        assertThat(result.refreshTokenExpires())
+                .isBetween(
+                        before.plusSeconds(authProperties.getRefreshTokenValiditySeconds()).toEpochMilli(),
+                        after.plusSeconds(authProperties.getRefreshTokenValiditySeconds()).toEpochMilli()
+                );
+    }
+
+    @Test
+    void refreshAccessToken_rejectsInvalidRefreshTokenAndDoesNotMutateAnything() {
         UUID sessionId = UUID.randomUUID();
 
         when(userSessionRepository.findById(sessionId)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> sessionService.refreshAccessToken(sessionId))
                 .isInstanceOf(LoginFailedException.class);
+
+        assertThat(TransactionSynchronizationManager.getSynchronizations()).isEmpty();
+
+        verifyNoInteractions(tokenIntrospectionCache);
+        verifyNoInteractions(webSocketSessionRegistry);
+        verify(userSessionRepository, never()).save(any(UserSessionDB.class));
+        verify(userSessionRepository, never()).delete(any(UserSessionDB.class));
+    }
+
+    @Test
+    void replaceSessions_shouldCreateNewSessionAndDeleteOldOnes() {
+        UUID userId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(userId);
+
+        List<UserSessionDB> oldSessions = List.of(mock(UserSessionDB.class), mock(UserSessionDB.class), mock(UserSessionDB.class));
+        for (UserSessionDB oldSession : oldSessions)
+            when(oldSession.getUser()).thenReturn(user);
+
+        when(userSessionRepository.findAllByUser_Id(userId)).thenReturn(oldSessions);
+
+        UserSessionDto result = sessionService.replaceSessions(user);
+
+        assertThat(isBase64Token(result.accessToken())).isTrue();
+        assertThat(isBase64Token(result.refreshToken())).isTrue();
+        assertThat(result.accessTokenExpires()).isNotNull();
+        assertThat(result.refreshTokenExpires()).isNotNull();
+
+        verify(tokenIntrospectionCache).evictAll(oldSessions);
+        verify(userSessionRepository).deleteAll(oldSessions);
+
+        ArgumentCaptor<UserSessionDB> captor = ArgumentCaptor.forClass(UserSessionDB.class);
+        verify(userSessionRepository).save(captor.capture());
+        assertThat(captor.getValue().getUser()).isSameAs(user);
+    }
+
+    @Test
+    void replaceSessions_shouldRevokeAllOldWebSocketsAfterCommit() {
+        UUID userId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(userId);
+
+        List<UUID> oldSessionIds = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        List<UserSessionDB> oldSessions = new ArrayList<>();
+        for (UUID sessionId : oldSessionIds) {
+            UserSessionDB session = mock(UserSessionDB.class);
+            when(session.getId()).thenReturn(sessionId);
+            when(session.getUser()).thenReturn(user);
+            oldSessions.add(session);
+        }
+
+        when(userSessionRepository.findAllByUser_Id(userId)).thenReturn(oldSessions);
+
+        sessionService.replaceSessions(user);
+
+        verifyNoInteractions(webSocketSessionRegistry);
+
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).hasSize(1);
+
+        synchronizations.getFirst().afterCommit();
+        for (UUID sessionId : oldSessionIds)
+            verify(webSocketSessionRegistry).revoke(sessionId);
+
+        verify(tokenIntrospectionCache, times(2)).evictAll(oldSessions);
+    }
+
+    @Test
+    void refreshAccessToken_shouldRevokeOldWebSocketAfterCommit() {
+        UUID userId = UUID.randomUUID(), oldSessionId = UUID.randomUUID();
+        UserDB user = mock(UserDB.class);
+        when(user.getId()).thenReturn(userId);
+
+        UserSessionDB oldSession = mock(UserSessionDB.class);
+        when(oldSession.getId()).thenReturn(oldSessionId);
+        when(oldSession.getUser()).thenReturn(user);
+        when(oldSession.getRefreshTokenExpires()).thenReturn(Instant.now().plusSeconds(1));
+        when(userSessionRepository.findById(oldSessionId)).thenReturn(Optional.of(oldSession));
+
+        sessionService.refreshAccessToken(oldSessionId);
+
+        verifyNoInteractions(webSocketSessionRegistry);
+
+        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+        assertThat(synchronizations).hasSize(1);
+
+        synchronizations.getFirst().afterCommit();
+
+        verify(webSocketSessionRegistry).revoke(oldSessionId);
     }
 }
