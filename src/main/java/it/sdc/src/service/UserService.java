@@ -7,6 +7,7 @@ import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.dto.ContactCryptoDto;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserDto;
+import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.exceptions.PartialRegistrationException;
 import it.sdc.src.exceptions.UserNotFoundException;
 import it.sdc.src.exceptions.UsernameAlreadyTakenException;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 

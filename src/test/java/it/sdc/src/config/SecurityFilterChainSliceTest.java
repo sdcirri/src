@@ -9,6 +9,7 @@ import it.sdc.src.dto.requests.LoginRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
+import it.sdc.src.service.SessionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -58,6 +59,9 @@ public class SecurityFilterChainSliceTest {
 
     @MockitoBean
     AuthService authService;
+
+    @MockitoBean
+    SessionService sessionService;
 
     @MockitoBean
     AuthCookieService authCookieService;
@@ -117,7 +121,7 @@ public class SecurityFilterChainSliceTest {
     @Test
     void refreshEndpoint_usesRefreshIntrospector_notAccessIntrospector() throws Exception {
         when(refreshTokenIntrospector.introspect("refresh-token")).thenReturn(mockPrincipal());
-        when(authService.refreshAccessToken(any(UUID.class))).thenReturn(mockSessionDto());
+        when(sessionService.refreshAccessToken(any(UUID.class))).thenReturn(mockSessionDto());
         when(authCookieService.buildAccessCookie(anyString()))
                 .thenReturn(ResponseCookie.from("accessToken", "token").build());
         when(authCookieService.buildRefreshCookie(anyString()))

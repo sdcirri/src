@@ -1,92 +1,34 @@
 package it.sdc.src.service;
 
-import it.sdc.src.auth.TokenIntrospectionCache;
-import it.sdc.src.config.AuthProperties;
-import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
-import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
-import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.UserCryptoDto;
 import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
-import it.sdc.src.service.mapping.UserCryptoMapper;
-import it.sdc.src.ws.WebSocketSessionRegistry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.security.SecureRandom;
-import java.time.Instant;
 import java.util.*;
 
-import static it.sdc.src.utils.HashingUtils.sha512;
-
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AuthService {
     private final PasswordEncoder passwordEncoder;
-    private final SecureRandom secureRandom;
 
-    private final UserSessionDBRepository userSessionRepository;
     private final UserCryptoDBRepository userCryptoRepository;
     private final UserDBRepository userRepository;
 
-    private final UserCryptoMapper userCryptoMapper;
+    private final SessionService sessionService;
+    private final AccountService accountService;
 
-    private final WebSocketSessionRegistry webSocketSessionRegistry;
-    private final TokenIntrospectionCache tokenIntrospectionCache;
     private final HibpClient hibpClient;
-
-    private final AuthProperties authProperties;
-
-    /**
-     * Generate fresh access and refresh tokens
-     * @return the new tokens
-     */
-    private byte[][] yieldTokens() {
-        byte[] accessToken = new byte[32], refreshToken = new byte[32];
-        do {
-            secureRandom.nextBytes(accessToken);
-            secureRandom.nextBytes(refreshToken);
-            // worth checking even if possibility is astronomically low
-        }  while (Arrays.equals(accessToken, refreshToken));
-        return new byte[][]{accessToken, refreshToken};
-    }
-
-    /**
-     * Generate a new session for the user
-     * @param user user
-     * @return the plain session tokens
-     */
-    private UserSessionDto yieldSession(UserDB user) {
-        byte[][] tokens = yieldTokens();
-        Instant now = Instant.now();
-        Instant accessExp = now.plusSeconds(authProperties.getAccessTokenValiditySeconds());
-        Instant refreshExp = now.plusSeconds(authProperties.getRefreshTokenValiditySeconds());
-        userSessionRepository.save(UserSessionDB.builder()
-                .user(user)
-                .accessToken(sha512(tokens[0]))
-                .accessTokenExpires(accessExp)
-                .refreshToken(sha512(tokens[1]))
-                .refreshTokenExpires(refreshExp)
-                .build()
-        );
-        return new UserSessionDto(
-                user.getId(),
-                Base64.getEncoder().encodeToString(tokens[0]),
-                accessExp.toEpochMilli(),
-                Base64.getEncoder().encodeToString(tokens[1]),
-                refreshExp.toEpochMilli()
-        );
-    }
 
     /**
      * Logs in the user yielding a new valid session
@@ -102,80 +44,25 @@ public class AuthService {
         if (!passwordEncoder.matches(password, user.getPasswordHash()))
             throw new LoginFailedException("Invalid password");
 
-        return yieldSession(user);
+        return sessionService.yieldSession(user);
     }
 
-    /**
-     * Invalidates a user session
-     * @param sessionId session ID from the authentication principal
-     */
-    @Transactional
-    public void invalidateSession(UUID sessionId) {
-        UserSessionDB session = userSessionRepository.findById(sessionId).orElse(null);
-        if (session == null) return;
-
-        tokenIntrospectionCache.evict(session);
-        userSessionRepository.delete(session);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        tokenIntrospectionCache.evict(session);
-                        webSocketSessionRegistry.revoke(session.getId());
-                    }
-                }
-        );
-    }
-
-    /**
-     * Refresh a user session
-     * @param sessionId session ID
-     * @return a new user session
-     * @throws LoginFailedException on bad refresh token
-     */
-    @Transactional
-    public UserSessionDto refreshAccessToken(UUID sessionId) {
-        UserSessionDB session = userSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new LoginFailedException("Invalid refresh token"));
-        if(Instant.now().isAfter(session.getRefreshTokenExpires()))
-            throw new LoginFailedException("Invalid refresh token");
-
-        tokenIntrospectionCache.evict(session);
-        userSessionRepository.delete(session);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        tokenIntrospectionCache.evict(session);
-                        webSocketSessionRegistry.revoke(session.getId());
-                    }
-                }
-        );
-        return yieldSession(session.getUser());
-    }
 
     /**
      * Registers a new user and logs them in
      * @param request registration request
      * @return a valid user session
      * @throws UsernameAlreadyTakenException if username is already taken
+     * @throws PwnedPasswordException if the password was involved in a data breach
      */
     public UserSessionDto register(UserRegistrationRequest request) {
-        if (userRepository.existsByUsername(request.username()))
-            throw new UsernameAlreadyTakenException("Username is already taken");
+        switch (hibpClient.isPwned(request.password())) {
+            case PWNED -> throw new PwnedPasswordException("Password is involved in a data breach!");
+            case SERVICE_UNAVAILABLE -> log.warn("Warning! HIBP unreachable, allowing user registration");
+        }
 
-        if (hibpClient.isPwned(request.password()))
-            throw new PwnedPasswordException("Password is involved in a data breach!");
-
-        UserDB newUser = UserDB.builder()
-                .username(request.username())
-                .displayName(request.displayName())
-                .registrationTimeUTC(Instant.now())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .build();
-
-        newUser = userRepository.save(newUser);
-        return yieldSession(newUser);
+        String hash = passwordEncoder.encode(request.password());
+        return accountService.registerUser(request.username(), request.displayName(), hash);
     }
 
     /**
@@ -198,19 +85,16 @@ public class AuthService {
             throw new BadPasswordException("Invalid password");
 
         Base64.Decoder decoder = Base64.getDecoder();
-        UserCryptoDB newUserCrypto = UserCryptoDB.builder()
-                .userDB(newUser)
-                .kekSalt(decoder.decode(request.kekSalt()))
-                .privateEd25519(decoder.decode(request.privateEd25519Crypto()))
-                .ivEd25519(decoder.decode(request.privateEd25519IV()))
-                .publicEd25519(decoder.decode(request.publicEd25519()))
-                .privateX25519(decoder.decode(request.privateX25519Crypto()))
-                .ivX25519(decoder.decode(request.privateX25519IV()))
-                .publicX25519(decoder.decode(request.publicX25519()))
-                .build();
-
-        newUserCrypto = userCryptoRepository.save(newUserCrypto);
-        return userCryptoMapper.toPrivateDto(newUserCrypto);
+        return accountService.bootstrapUserCrypto(
+                userId,
+                decoder.decode(request.kekSalt()),
+                decoder.decode(request.privateEd25519Crypto()),
+                decoder.decode(request.privateEd25519IV()),
+                decoder.decode(request.publicEd25519()),
+                decoder.decode(request.privateX25519Crypto()),
+                decoder.decode(request.privateX25519IV()),
+                decoder.decode(request.publicX25519())
+        );
     }
 
     /**
@@ -219,7 +103,6 @@ public class AuthService {
      * @param request the new password to set and re-encrypted user secrets
      * @throws UserNotFoundException on bad user ID
      */
-    @Transactional
     public UserSessionDto changePassword(UUID userId, PasswordChangeRequest request) {
         UserDB user = userRepository.findById(userId).orElseThrow(
                 () -> new UserNotFoundException("User not found")
@@ -229,37 +112,25 @@ public class AuthService {
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash()))
             throw new PasswordConflictException("New password should not be the same as the old password");
 
-        if (hibpClient.isPwned(request.newPassword()))
-            throw new PwnedPasswordException("Password is involved in a data breach!");
+        switch (hibpClient.isPwned(request.newPassword())) {
+            case PWNED -> throw new PwnedPasswordException("Password is involved in a data breach!");
+            case SERVICE_UNAVAILABLE -> log.warn("Warning! HIBP unreachable, allowing password change");
+        }
 
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 
         Base64.Decoder decoder = Base64.getDecoder();
-        UserCryptoDB crypto = user.getCrypto();
 
-        crypto.setKekSalt(decoder.decode(request.newKekSalt()));
-        crypto.setIvEd25519(decoder.decode(request.newIvEd25519()));
-        crypto.setPrivateEd25519(decoder.decode(request.newPrivateEd25519()));
-        crypto.setIvX25519(decoder.decode(request.newIvX25519()));
-        crypto.setPrivateX25519(decoder.decode(request.newPrivateX25519()));
-
-        userRepository.save(user);
-
-        List<UserSessionDB> oldSessions = userSessionRepository.findAllByUser_Id(user.getId());
-        UserSessionDto newSession = yieldSession(user);
-
-        tokenIntrospectionCache.evictAll(oldSessions);
-        userSessionRepository.deleteAll(oldSessions);
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        tokenIntrospectionCache.evictAll(oldSessions);
-                        for (UserSessionDB session : oldSessions)
-                            webSocketSessionRegistry.revoke(session.getId());
-                    }
-                }
+        accountService.changeUserPassword(
+                userId,
+                passwordEncoder.encode(request.newPassword()),
+                decoder.decode(request.newKekSalt()),
+                decoder.decode(request.newPrivateEd25519()),
+                decoder.decode(request.newIvEd25519()),
+                decoder.decode(request.newPrivateX25519()),
+                decoder.decode(request.newIvX25519())
         );
-        return newSession;
+
+        return sessionService.replaceSessions(user);
     }
 }

@@ -7,6 +7,7 @@ import it.sdc.src.dto.requests.*;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.service.AuthCookieService;
 import it.sdc.src.service.AuthService;
+import it.sdc.src.service.SessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthCookieService authCookieService;
     private final AuthService authService;
+    private final SessionService sessionService;
 
     private ResponseEntity<Void> sessionResponse(UserSessionDto session, HttpStatus status) {
         return ResponseEntity.status(status)
@@ -39,7 +41,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal UserPrincipal user) {
-        authService.invalidateSession(user.getSessionId());
+        sessionService.invalidateSession(user.getSessionId());
         return ResponseEntity.status(HttpStatus.NO_CONTENT)
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearAccessCookie().toString())
                 .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefreshCookie().toString())
@@ -48,7 +50,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refreshSession(@AuthenticationPrincipal UserPrincipal userPrincipal) {
-        UserSessionDto session = authService.refreshAccessToken(userPrincipal.getSessionId());
+        UserSessionDto session = sessionService.refreshAccessToken(userPrincipal.getSessionId());
         return sessionResponse(session, HttpStatus.NO_CONTENT);
     }
 

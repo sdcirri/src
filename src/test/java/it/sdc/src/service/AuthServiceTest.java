@@ -1,36 +1,23 @@
 package it.sdc.src.service;
 
-import it.sdc.src.auth.TokenIntrospectionCache;
-import it.sdc.src.config.AuthProperties;
-import it.sdc.src.db.entities.UserCryptoDB;
 import it.sdc.src.db.entities.UserDB;
 import it.sdc.src.db.entities.UserSessionDB;
 import it.sdc.src.db.repositories.UserCryptoDBRepository;
 import it.sdc.src.db.repositories.UserDBRepository;
 import it.sdc.src.db.repositories.UserSessionDBRepository;
-import it.sdc.src.dto.UserCryptoDto;
-import it.sdc.src.dto.UserSessionDto;
 import it.sdc.src.dto.requests.UserRegistrationFinalizationRequest;
 import it.sdc.src.dto.requests.UserRegistrationRequest;
 import it.sdc.src.dto.requests.accountedits.PasswordChangeRequest;
 import it.sdc.src.exceptions.*;
-import it.sdc.src.service.mapping.UserCryptoMapper;
-import it.sdc.src.ws.WebSocketSessionRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import java.security.SecureRandom;
-import java.time.Instant;
 import java.util.*;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
@@ -40,21 +27,14 @@ public class AuthServiceTest {
     private UserSessionDBRepository userSessionRepository;
     private UserCryptoDBRepository userCryptoRepository;
     private UserDBRepository userRepository;
-    private TokenIntrospectionCache tokenIntrospectionCache;
-    private WebSocketSessionRegistry webSocketSessionRegistry;
+    private SessionService sessionService;
+    private AccountService accountService;
     private HibpClient hibpClient;
 
     private AuthService authService;
 
     private static String b64(byte... bytes) {
         return Base64.getEncoder().encodeToString(bytes);
-    }
-
-    private AuthProperties authProperties() {
-        AuthProperties authProperties = new AuthProperties();
-        authProperties.setAccessTokenValiditySeconds(3600);
-        authProperties.setRefreshTokenValiditySeconds(3600);
-        return authProperties;
     }
 
     private UserRegistrationFinalizationRequest validFinalizationRequest() {
@@ -86,30 +66,20 @@ public class AuthServiceTest {
     void setUp() {
         passwordEncoder = mock(Argon2PasswordEncoder.class);
 
-        UserCryptoMapper userCryptoMapper = new UserCryptoMapper();
-
         userSessionRepository = mock(UserSessionDBRepository.class);
         userCryptoRepository = mock(UserCryptoDBRepository.class);
         userRepository = mock(UserDBRepository.class);
-        tokenIntrospectionCache = mock(TokenIntrospectionCache.class);
-        webSocketSessionRegistry = mock(WebSocketSessionRegistry.class);
+        sessionService = mock(SessionService.class);
+        accountService = mock(AccountService.class);
         hibpClient = mock(HibpClient.class);
-
-        AuthProperties authProperties = new AuthProperties();
-        authProperties.setAccessTokenValiditySeconds(3600);
-        authProperties.setRefreshTokenValiditySeconds(3600);
 
         authService = new AuthService(
                 passwordEncoder,
-                new SecureRandom(),
-                userSessionRepository,
                 userCryptoRepository,
                 userRepository,
-                userCryptoMapper,
-                webSocketSessionRegistry,
-                tokenIntrospectionCache,
-                hibpClient,
-                authProperties
+                sessionService,
+                accountService,
+                hibpClient
         );
     }
 
@@ -145,72 +115,9 @@ public class AuthServiceTest {
         when(passwordEncoder.encode("newPassword")).thenReturn("passwordHash");
         when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
 
-        UserSessionDto result = authService.login("username", "newPassword");
-        ArgumentCaptor<UserSessionDB> captor = ArgumentCaptor.forClass(UserSessionDB.class);
-        verify(userSessionRepository).save(captor.capture());
+        authService.login("username", "newPassword");
 
-        UserSessionDB saved = captor.getValue();
-        assertThat(saved.getUser()).isSameAs(user);
-        assertThat(saved.getAccessToken()).hasSize(64);
-        assertThat(saved.getRefreshToken()).hasSize(64);
-        assertThat(saved.getAccessTokenExpires()).isAfter(Instant.now());
-
-        assertThat(result.accessToken()).isNotBlank();
-        assertThat(result.refreshToken()).isNotBlank();
-    }
-
-    @Test
-    void login_regeneratesTokensWhenAccessAndRefreshCollide() {
-        SecureRandom collidingRandom = mock(SecureRandom.class);
-        java.util.concurrent.atomic.AtomicInteger nextBytesCalls = new java.util.concurrent.atomic.AtomicInteger();
-
-        doAnswer(invocation -> {
-            byte[] buffer = invocation.getArgument(0);
-            int call = nextBytesCalls.getAndIncrement();
-            if (call < 2) {
-                Arrays.fill(buffer, (byte) 7);
-            } else if (call == 2) {
-                Arrays.fill(buffer, (byte) 1);
-            } else {
-                Arrays.fill(buffer, (byte) 2);
-            }
-            return null;
-        }).when(collidingRandom).nextBytes(any(byte[].class));
-
-        AuthService service = new AuthService(
-                passwordEncoder,
-                collidingRandom,
-                userSessionRepository,
-                userCryptoRepository,
-                userRepository,
-                new UserCryptoMapper(),
-                webSocketSessionRegistry,
-                tokenIntrospectionCache,
-                hibpClient,
-                authProperties()
-        );
-
-        UserDB user = mock(UserDB.class);
-        when(user.getPasswordHash()).thenReturn("passwordHash");
-        when(userRepository.findByUsername("username")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
-        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
-            UserSessionDB session = invocation.getArgument(0);
-            return UserSessionDB.builder()
-                    .id(UUID.randomUUID())
-                    .user(session.getUser())
-                    .accessToken(session.getAccessToken())
-                    .accessTokenExpires(session.getAccessTokenExpires())
-                    .refreshToken(session.getRefreshToken())
-                    .refreshTokenExpires(session.getRefreshTokenExpires())
-                    .build();
-        });
-
-        UserSessionDto result = service.login("username", "newPassword");
-
-        assertThat(result.accessToken()).isNotBlank();
-        assertThat(result.refreshToken()).isNotBlank();
-        verify(collidingRandom, atLeast(4)).nextBytes(any(byte[].class));
+        verify(sessionService).yieldSession(user);
     }
 
     @Test
@@ -236,117 +143,20 @@ public class AuthServiceTest {
     }
 
     @Test
-    void invalidateSession_shouldNopWhenSessionDoesNotExist() {
-        UUID sessionId = UUID.randomUUID();
-
-        when(userSessionRepository.findById(sessionId))
-                .thenReturn(Optional.empty());
-
-        authService.invalidateSession(sessionId);
-
-        verify(userSessionRepository).findById(sessionId);
-        verify(userSessionRepository, never()).delete(any());
-        verifyNoInteractions(tokenIntrospectionCache);
-    }
-
-    @Test
-    void invalidateSession_shouldEvictAndDeleteSession() {
-        UUID sessionId = UUID.randomUUID();
-        UserSessionDB session = mock(UserSessionDB.class);
-
-        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-
-        authService.invalidateSession(sessionId);
-
-        verify(tokenIntrospectionCache).evict(session);
-        verify(userSessionRepository).delete(session);
-    }
-
-    @Test
-    void invalidateSession_shouldEvictAgainAfterCommit() {
-        UUID sessionId = UUID.randomUUID();
-        UserSessionDB session = mock(UserSessionDB.class);
-
-        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
-
-        authService.invalidateSession(sessionId);
-
-        verify(tokenIntrospectionCache, times(1)).evict(session);
-        List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
-        assertThat(synchronizations).hasSize(1);
-        synchronizations.getFirst().afterCommit();
-        verify(tokenIntrospectionCache, times(2)).evict(session);
-    }
-
-    @Test
     void register_shouldInitializeRegistration() {
-        when(passwordEncoder.encode("newPassword")).thenReturn("passwordHash");
-        when(passwordEncoder.matches("newPassword", "passwordHash")).thenReturn(true);
+        String username = "username", displayName = "displayName", password = "newPassword";
+        when(passwordEncoder.encode(password)).thenReturn("passwordHash");
+        when(passwordEncoder.matches(password, "passwordHash")).thenReturn(true);
+        when(hibpClient.isPwned(password)).thenReturn(HibpClient.HibpResult.NOT_PWNED);
 
-        when(userRepository.save(any(UserDB.class))).thenAnswer(invocation -> {
-            UserDB user = invocation.getArgument(0);
-            return UserDB.builder()
-                    .id(UUID.randomUUID())
-                    .username(user.getUsername())
-                    .displayName(user.getDisplayName())
-                    .passwordHash(user.getPasswordHash())
-                    .registrationTimeUTC(user.getRegistrationTimeUTC())
-                    .build();
-        });
-        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
-            UserSessionDB session = invocation.getArgument(0);
-            return UserSessionDB.builder()
-                    .id(UUID.randomUUID())
-                    .user(session.getUser())
-                    .accessToken(session.getAccessToken())
-                    .accessTokenExpires(session.getAccessTokenExpires())
-                    .refreshToken(session.getRefreshToken())
-                    .refreshTokenExpires(session.getRefreshTokenExpires())
-                    .build();
-        });
+        authService.register(new UserRegistrationRequest(username, displayName, password));
 
-        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
-        UserSessionDto result = authService.register(request);
-
-        ArgumentCaptor<UserDB> userCaptor = ArgumentCaptor.forClass(UserDB.class);
-        verify(userRepository).save(userCaptor.capture());
-
-        UserDB savedUser = userCaptor.getValue();
-        assertThat(savedUser.getUsername()).isEqualTo("username");
-        assertThat(savedUser.getDisplayName()).isEqualTo("Display Name");
-        assertThat(savedUser.getPasswordHash()).isEqualTo("passwordHash");
-        assertThat(savedUser.getRegistrationTimeUTC()).isBeforeOrEqualTo(Instant.now());
-
-        ArgumentCaptor<UserSessionDB> sessionCaptor = ArgumentCaptor.forClass(UserSessionDB.class);
-        verify(userSessionRepository).save(sessionCaptor.capture());
-
-        UserSessionDB savedSession = sessionCaptor.getValue();
-        assertThat(savedSession.getUser().getUsername()).isEqualTo(savedUser.getUsername());
-        assertThat(savedSession.getUser().getPasswordHash()).isEqualTo(savedUser.getPasswordHash());
-        assertThat(savedSession.getUser().getDisplayName()).isEqualTo(savedUser.getDisplayName());
-
-        assertThat(savedSession.getAccessToken()).hasSize(64);
-        assertThat(savedSession.getRefreshToken()).hasSize(64);
-
-        assertThat(result.accessToken()).isNotBlank();
-        assertThat(result.refreshToken()).isNotBlank();
-
-        verify(passwordEncoder).encode("newPassword");
-        verify(userRepository, never()).findByUsername(any());
-    }
-
-    @Test
-    void register_shouldFailIfUsernameAlreadyTaken() {
-        when(userRepository.existsByUsername("username")).thenReturn(true);
-
-        UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
-
-        assertThatThrownBy(() -> authService.register(request)).isInstanceOf(UsernameAlreadyTakenException.class);
+        verify(accountService).registerUser(username, displayName, "passwordHash");
     }
 
     @Test
     void register_shouldRejectPwnedPassword() {
-        when(hibpClient.isPwned(anyString())).thenReturn(true);
+        when(hibpClient.isPwned(anyString())).thenReturn(HibpClient.HibpResult.PWNED);
 
         UserRegistrationRequest request = new UserRegistrationRequest("username", "Display Name", "newPassword");
 
@@ -365,29 +175,20 @@ public class AuthServiceTest {
 
         when(userCryptoRepository.existsById(userId)).thenReturn(false);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userCryptoRepository.save(any(UserCryptoDB.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UserCryptoDto result = authService.finalizeRegistration(userId, request);
+        authService.finalizeRegistration(userId, request);
 
-        ArgumentCaptor<UserCryptoDB> captor = ArgumentCaptor.forClass(UserCryptoDB.class);
-        verify(userCryptoRepository).save(captor.capture());
-
-        UserCryptoDB saved = captor.getValue();
-        assertThat(saved.getUserDB().getId()).isEqualTo(userId);
-        assertThat(saved.getKekSalt()).containsExactly(1, 2, 3);
-        assertThat(saved.getPrivateEd25519()).containsExactly(10, 11);
-        assertThat(saved.getIvEd25519()).containsExactly(20, 21);
-        assertThat(saved.getPublicEd25519()).containsExactly(30, 31);
-        assertThat(saved.getPrivateX25519()).containsExactly(40, 41);
-        assertThat(saved.getIvX25519()).containsExactly(50, 51);
-        assertThat(saved.getPublicX25519()).containsExactly(60, 61);
-
-        assertThat(result.id()).isEqualTo(userId);
-        assertThat(result.kekSalt()).isEqualTo(request.kekSalt());
-        assertThat(result.publicEd25519()).isEqualTo(request.publicEd25519());
-
-        verify(userSessionRepository, never()).save(any());
-        verify(passwordEncoder, never()).encode(any());
+        Base64.Decoder decoder = Base64.getDecoder();
+        verify(accountService).bootstrapUserCrypto(
+                userId,
+                decoder.decode(request.kekSalt()),
+                decoder.decode(request.privateEd25519Crypto()),
+                decoder.decode(request.privateEd25519IV()),
+                decoder.decode(request.publicEd25519()),
+                decoder.decode(request.privateX25519Crypto()),
+                decoder.decode(request.privateX25519IV()),
+                decoder.decode(request.publicX25519())
+        );
     }
 
     @Test
@@ -435,71 +236,33 @@ public class AuthServiceTest {
     }
 
     @Test
-    @SuppressWarnings("SuspiciousMethodCalls")
     void changePassword_shouldChangePassword() {
         UUID userId = UUID.randomUUID();
         UserDB user = mock(UserDB.class);
-        UserCryptoDB userCryptoDB = mock(UserCryptoDB.class);
         String oldPassword = "oldPassword", newPassword = "newPassword";
         when(user.getPasswordHash()).thenReturn("oldPasswordHash");
 
-        List<UserSessionDB> userSessions = new ArrayList<>(List.of(mock(UserSessionDB.class), mock(UserSessionDB.class)));
-        when(userSessionRepository.findAllByUser_Id(userId)).thenAnswer(_ -> new ArrayList<>(userSessions));
-
-        doAnswer(invocation -> {
-            userSessions.removeAll(invocation.getArgument(0));
-            return null;
-        }).when(userSessionRepository).deleteAll(ArgumentMatchers.<Iterable<UserSessionDB>>any());
-        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
-            UserSessionDB session = invocation.getArgument(0);
-            userSessions.add(session);
-            return UserSessionDB.builder()
-                    .id(UUID.randomUUID())
-                    .user(session.getUser())
-                    .accessToken(session.getAccessToken())
-                    .accessTokenExpires(session.getAccessTokenExpires())
-                    .refreshToken(session.getRefreshToken())
-                    .refreshTokenExpires(session.getRefreshTokenExpires())
-                    .build();
-        });
-
-        when(user.getId()).thenReturn(userId);
-        when(user.getCrypto()).thenReturn(userCryptoDB);
-
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
-        when(userRepository.save(any(UserDB.class))).thenAnswer(invocation -> {
-            UserDB userToPersist = invocation.getArgument(0);
-            return UserDB.builder()
-                    .id(UUID.randomUUID())
-                    .username(userToPersist.getUsername())
-                    .displayName(userToPersist.getDisplayName())
-                    .passwordHash(userToPersist.getPasswordHash())
-                    .registrationTimeUTC(userToPersist.getRegistrationTimeUTC())
-                    .build();
-        });
-
+        when(hibpClient.isPwned(newPassword)).thenReturn(HibpClient.HibpResult.NOT_PWNED);
         when(passwordEncoder.encode(oldPassword)).thenReturn("oldPasswordHash");
         when(passwordEncoder.encode(newPassword)).thenReturn("newPasswordHash");
         when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(true);
         when(passwordEncoder.matches(newPassword, "newPasswordHash")).thenReturn(true);
 
         PasswordChangeRequest request = validPasswordChangeRequest(oldPassword, newPassword);
-        UserSessionDto result = authService.changePassword(userId, request);
+        authService.changePassword(userId, request);
 
-        ArgumentCaptor<UserSessionDB> sessionCaptor = ArgumentCaptor.forClass(UserSessionDB.class);
-        verify(userSessionRepository, times(1)).save(sessionCaptor.capture());
-
-        UserSessionDB createdSession = sessionCaptor.getValue();
-
-        assertThat(createdSession.getUser()).isSameAs(user);
-        assertThat(createdSession.getAccessToken()).hasSize(64);
-        assertThat(createdSession.getRefreshToken()).hasSize(64);
-        assertThat(createdSession.getAccessTokenExpires()).isAfter(Instant.now());
-
-        assertThat(result.accessToken()).isNotBlank();
-        assertThat(result.refreshToken()).isNotBlank();
-
-        assertThat(userSessionRepository.findAllByUser_Id(userId)).hasSize(1);
+        Base64.Decoder decoder = Base64.getDecoder();
+        verify(accountService).changeUserPassword(
+                userId,
+                passwordEncoder.encode(request.newPassword()),
+                decoder.decode(request.newKekSalt()),
+                decoder.decode(request.newPrivateEd25519()),
+                decoder.decode(request.newIvEd25519()),
+                decoder.decode(request.newPrivateX25519()),
+                decoder.decode(request.newIvX25519())
+        );
+        verify(sessionService).replaceSessions(user);
     }
 
     @Test
@@ -559,61 +322,10 @@ public class AuthServiceTest {
         when(passwordEncoder.matches(oldPassword, "oldPasswordHash")).thenReturn(true);
         when(passwordEncoder.matches(newPassword, "oldPasswordHash")).thenReturn(false);
 
-        when(hibpClient.isPwned(anyString())).thenReturn(true);
+        when(hibpClient.isPwned(anyString())).thenReturn(HibpClient.HibpResult.PWNED);
 
         assertThatThrownBy(
                 () -> authService.changePassword(userId, validPasswordChangeRequest(oldPassword, newPassword))
         ).isInstanceOf(PwnedPasswordException.class);
-    }
-
-    @Test
-    void refreshAccessToken_yieldsValidAccessToken() {
-        UUID sessionId = UUID.randomUUID();
-        UserDB user = mock(UserDB.class);
-
-        UserSessionDB userSession = mock(UserSessionDB.class);
-        when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().plusSeconds(10000));
-        when(userSession.getUser()).thenReturn(user);
-        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(userSession));
-        when(userSessionRepository.save(any(UserSessionDB.class))).thenAnswer(invocation -> {
-            UserSessionDB session = invocation.getArgument(0);
-            return UserSessionDB.builder()
-                    .id(UUID.randomUUID())
-                    .user(session.getUser())
-                    .accessToken(session.getAccessToken())
-                    .accessTokenExpires(session.getAccessTokenExpires())
-                    .refreshToken(session.getRefreshToken())
-                    .refreshTokenExpires(session.getRefreshTokenExpires())
-                    .build();
-        });
-
-        UserSessionDto result = authService.refreshAccessToken(sessionId);
-        assertThat(result.accessToken()).isNotBlank();
-        assertThat(result.refreshToken()).isNotBlank();
-        assertThat(result.accessTokenExpires() > Instant.now().toEpochMilli()).isTrue();
-        assertThat(result.refreshTokenExpires() > Instant.now().toEpochMilli()).isTrue();
-        verify(tokenIntrospectionCache).evict(userSession);
-        verify(userSessionRepository).delete(userSession);
-    }
-
-    @Test
-    void refreshAccessToken_rejectsExpiredRefreshToken() {
-        UUID sessionId = UUID.randomUUID();
-
-        UserSessionDB userSession = mock(UserSessionDB.class);
-        when(userSession.getRefreshTokenExpires()).thenReturn(Instant.now().minusSeconds(1));
-        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.of(userSession));
-
-        assertThatThrownBy(() -> authService.refreshAccessToken(sessionId))
-                .isInstanceOf(LoginFailedException.class);
-    }
-
-    @Test
-    void refreshAccessToken_rejectsInvalidRefreshToken() {
-        UUID sessionId = UUID.randomUUID();
-
-        when(userSessionRepository.findById(sessionId)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> authService.refreshAccessToken(sessionId))
-                .isInstanceOf(LoginFailedException.class);
     }
 }

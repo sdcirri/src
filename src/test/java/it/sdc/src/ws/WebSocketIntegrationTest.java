@@ -9,8 +9,8 @@ import it.sdc.src.db.repositories.UserSessionDBRepository;
 import it.sdc.src.dto.MessageDto;
 import it.sdc.src.dto.requests.MessageRequest;
 import it.sdc.src.service.AuthCookieService;
-import it.sdc.src.service.AuthService;
 import it.sdc.src.service.ChatService;
+import it.sdc.src.service.SessionService;
 import it.sdc.src.test.fixtures.TestStompFrameHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +80,7 @@ public class WebSocketIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private AuthService authService;
+    private SessionService sessionService;
 
     @Autowired
     private ChatService chatService;
@@ -231,7 +231,7 @@ public class WebSocketIntegrationTest {
         assertThat(socket1.isConnected()).isTrue();
         assertThat(socket2.isConnected()).isTrue();
 
-        authService.invalidateSession(session1.getId());
+        sessionService.invalidateSession(session1.getId());
 
         await().atMost(2, TimeUnit.SECONDS).until(() -> !socket1.isConnected());
         assertThat(socket2.isConnected()).isTrue();
