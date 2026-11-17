@@ -1,10 +1,7 @@
 package it.sdc.src.exceptions;
 
 import it.sdc.src.auth.UserPrincipal;
-import it.sdc.src.service.AuthCookieService;
-import it.sdc.src.service.AuthService;
-import it.sdc.src.service.ChatService;
-import it.sdc.src.service.UserService;
+import it.sdc.src.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -38,6 +35,9 @@ public class GlobalExceptionHandlerSliceTest {
 
     @MockitoBean
     UserService userService;
+
+    @MockitoBean
+    SessionService sessionService;
 
     @Test
     void should404onNoResourceFoundException() throws Exception {
