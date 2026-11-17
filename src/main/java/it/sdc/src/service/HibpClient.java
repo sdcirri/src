@@ -1,72 +1,69 @@
 package it.sdc.src.service;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HexFormat;
 
 import static it.sdc.src.utils.HashingUtils.sha1;
 
 @Component
-// Package constructor for testability
-@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class HibpClient {
-    private final HttpClient client;
+    private static final String BASE_URL = "https://api.pwnedpasswords.com";
+    private final RestClient client;
 
-    public HibpClient() {
-        this.client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(3))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+    public HibpClient(RestClient.Builder builder) {
+        this.client = builder
+                .baseUrl(BASE_URL)
+                .defaultHeader(HttpHeaders.USER_AGENT, "SRC/1.0")
+                .defaultHeader("Add-Padding", "true")
                 .build();
     }
 
     /**
      * Look up the user password on HIBP to check whether
      * it was involved in data breaches
-     * If the service is unavailable the password is considered not PWNed
      * @param password user chosen password
-     * @return whether the password was involved in a data breach
+     * @return whether the password was involved in a data breach,
+     *      HibpResult.SERVICE_UNAVAILABLE if the service was not reachable
      */
-    public boolean isPwned(String password) {
+    public HibpResult isPwned(String password) {
         String sha1 = HexFormat.of().withUpperCase().formatHex(
                 sha1(password.getBytes(StandardCharsets.UTF_8))
         );
         String prefix = sha1.substring(0, 5);
-
-        HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.pwnedpasswords.com/range/" + prefix))
-                .GET()
-                .timeout(Duration.ofSeconds(5))
-                .build();
-
-        HttpResponse<String> response;
+        String suffix = sha1.substring(5);
 
         try {
-            response = client.send(req, HttpResponse.BodyHandlers.ofString());
-        } catch (IOException e) {
-            // Service unavailable
-            return false;
-        } catch (InterruptedException e) {
-            // Interrupted
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("HIBP request interrupted", e);
-        }
+            String body = client.get()
+                    .uri("/range/{prefix}", prefix)
+                    .accept(MediaType.TEXT_PLAIN)
+                    .retrieve()
+                    .body(String.class);
+            if (body == null)
+                return HibpResult.SERVICE_UNAVAILABLE;
 
-        if (response.statusCode() != 200)
-            return false;
+            boolean pwned = body.lines()
+                    .map(line -> line.split(":", 2))
+                    .filter(parts -> parts.length == 2)
+                    .filter(parts -> !"0".equals(parts[1].trim()))
+                    .map(parts -> parts[0].trim())
+                    .anyMatch(suffix::equalsIgnoreCase);
 
-        for (String line : response.body().split("\n")) {
-            String pwnedHash = prefix + line.split(":")[0].toUpperCase();
-            if (sha1.equals(pwnedHash))
-                return true;
+            return pwned ? HibpResult.PWNED :  HibpResult.NOT_PWNED;
+
+        } catch (RestClientException e) {
+            return HibpResult.SERVICE_UNAVAILABLE;
         }
-        return false;
+    }
+
+    public enum HibpResult {
+        PWNED,
+        NOT_PWNED,
+        SERVICE_UNAVAILABLE
     }
 }
