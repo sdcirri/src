@@ -262,7 +262,6 @@ public class AuthServiceTest {
                 decoder.decode(request.newPrivateX25519()),
                 decoder.decode(request.newIvX25519())
         );
-        verify(sessionService).replaceSessions(user);
     }
 
     @Test

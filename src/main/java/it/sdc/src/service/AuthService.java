@@ -117,11 +117,9 @@ public class AuthService {
             case SERVICE_UNAVAILABLE -> log.warn("Warning! HIBP unreachable, allowing password change");
         }
 
-        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-
         Base64.Decoder decoder = Base64.getDecoder();
 
-        accountService.changeUserPassword(
+        return accountService.changeUserPassword(
                 userId,
                 passwordEncoder.encode(request.newPassword()),
                 decoder.decode(request.newKekSalt()),
@@ -130,7 +128,5 @@ public class AuthService {
                 decoder.decode(request.newPrivateX25519()),
                 decoder.decode(request.newIvX25519())
         );
-
-        return sessionService.replaceSessions(user);
     }
 }

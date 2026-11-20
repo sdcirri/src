@@ -104,7 +104,7 @@ public class AccountService {
      * @param ivX25519 new private X25519 key IV
      */
     @Transactional
-    public void changeUserPassword(
+    public UserSessionDto changeUserPassword(
             UUID userId,
             String passwordHash,
             byte[] kekSalt,
@@ -126,6 +126,6 @@ public class AccountService {
         crypto.setIvX25519(ivX25519);
         crypto.setPrivateX25519(privateX25519);
 
-        userRepository.save(user);
+        return sessionService.replaceSessions(user);
     }
 }

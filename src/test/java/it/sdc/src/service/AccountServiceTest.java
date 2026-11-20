@@ -171,7 +171,7 @@ public class AccountServiceTest {
                 PRIVATE_X25519_CRYPTO, PRIVATE_X25519_IV
         );
 
-        verify(userRepository).save(user);
+        verify(sessionService).replaceSessions(user);
 
         verify(user).setPasswordHash(newPasswordHash);
         verify(userCrypto).setKekSalt(KEK_SALT);
