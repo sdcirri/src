@@ -13,13 +13,13 @@ import java.util.UUID;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class CryptoFixtures {
-    private static final byte[] KEK_SALT = new byte[] {1};
-    private static final byte[] PRIVATE_ED25519_CRYPTO = new byte[] {2, 3, 4};
-    private static final byte[] PRIVATE_ED25519_IV = new byte[] {5, 6};
-    private static final byte[] PUBLIC_ED25519 = new byte[] {7, 8};
-    private static final byte[] PRIVATE_X25519_CRYPTO = new byte[] {9, 10, 11};
-    private static final byte[] PRIVATE_X25519_IV = new byte[] {12, 13};
-    private static final byte[] PUBLIC_X25519 = new byte[] {14, 15};
+    public static final byte[] KEK_SALT = new byte[] {1};
+    public static final byte[] PRIVATE_ED25519_CRYPTO = new byte[] {2, 3, 4};
+    public static final byte[] PRIVATE_ED25519_IV = new byte[] {5, 6};
+    public static final byte[] PUBLIC_ED25519 = new byte[] {7, 8};
+    public static final byte[] PRIVATE_X25519_CRYPTO = new byte[] {9, 10, 11};
+    public static final byte[] PRIVATE_X25519_IV = new byte[] {12, 13};
+    public static final byte[] PUBLIC_X25519 = new byte[] {14, 15};
 
     private static final Base64.Encoder ENCODER = Base64.getEncoder();
 
